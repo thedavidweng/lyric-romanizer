@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/lyric-romanizer.svg)](https://www.npmjs.com/package/lyric-romanizer)
 [![license](https://img.shields.io/npm/l/lyric-romanizer.svg)](https://github.com/thedavidweng/lyric-romanizer/blob/main/LICENSE)
 
-Script detection and local romanization engine for lyrics. Supports 13 scripts across Japanese, Chinese, Korean, Cyrillic, Indic, Tamil, Thai, and Latin — all running locally with zero API calls.
+Script detection and local romanization engine for lyrics. Supports 12 scripts across Japanese, Chinese, Korean, Cyrillic, Indic, Tamil, and Thai — all running locally with zero API calls.
 
 Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke). Used by [OpenKara](https://github.com/thedavidweng/openkara).
 
@@ -63,7 +63,7 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'latin' | 'other';
+  | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
@@ -181,15 +181,14 @@ try {
 | Chinese | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) | `你好` → `nǐ hǎo` |
 | Korean | [@romanize/korean](https://github.com/kntng/romanize) | `안녕` → `annyeong` |
 | Cyrillic | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
-| Devanagari | [sanscript](https://github.com/indic-transliteration/sanscript.js) | `नमस्ते` → `namaste` |
-| Gujarati | sanscript | `નમસ્તે` → `namaste` |
-| Gurmukhi | sanscript | `ਨਮਸਤੇ` → `namaste` |
-| Telugu | sanscript | `నమస్తే` → `namaste` |
-| Kannada | sanscript | `ನಮಸ್ತೆ` → `namaste` |
-| Odia | sanscript | `ନମସ୍ତେ` → `namaste` |
+| Devanagari | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
+| Gujarati | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
+| Gurmukhi | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| Telugu | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
+| Kannada | [sanscript](https://github.com/indic-transliteration/sanscript) | `నಮస్తె` → `namaste` |
+| Odia | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | Tamil | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
 | Thai | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
-| Latin | *(no-op)* | `Hello` → `Hello` |
 
 ### External (requires API)
 
