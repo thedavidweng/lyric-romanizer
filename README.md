@@ -1,69 +1,203 @@
 # lyric-romanizer
 
-Script detection and local romanization engine for lyrics. Supports Japanese, Chinese, Korean, Cyrillic, Indic scripts (Devanagari, Gujarati, Gurmukhi, Telugu, Kannada, Odia), Tamil, Thai, and Latin.
+[![npm version](https://img.shields.io/npm/v/lyric-romanizer.svg)](https://www.npmjs.com/package/lyric-romanizer)
+[![license](https://img.shields.io/npm/l/lyric-romanizer.svg)](https://github.com/thedavidweng/lyric-romanizer/blob/main/LICENSE)
 
-Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke).
+Script detection and local romanization engine for lyrics. Supports 13 scripts across Japanese, Chinese, Korean, Cyrillic, Indic, Tamil, Thai, and Latin — all running locally with zero API calls.
 
-## Install
+Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke). Used by [OpenKara](https://github.com/thedavidweng/openkara).
+
+## Installation
 
 ```bash
 npm install lyric-romanizer
 ```
 
-## API
+```bash
+yarn add lyric-romanizer
+```
+
+```bash
+pnpm add lyric-romanizer
+```
+
+## Quick Start
 
 ```ts
+import { createRomanizer, detectScript } from 'lyric-romanizer';
+
+const romanizer = createRomanizer();
+
+// Auto-detect script and romanize
+const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'こんにちは'] }
+
+// Romanize a single line
+const line = await romanizer.romanizeLine('안녕하세요');
+// 'annyeonghaseyo'
+```
+
+## API
+
+### Imports
+
+```ts
+// Main entry — full romanization engine
 import {
   createRomanizer,
   detectScript,
   isLatinScript,
   requiresExternalRomanization,
+  UnsupportedRomanizationError,
 } from 'lyric-romanizer';
 
-// Subpath import for detector only
-import { detectScript } from 'lyric-romanizer/detector';
+// Detector-only subpath — lightweight, no romanization dependencies
+import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
 ```
 
-### `detectScript(lines: readonly string[]): ScriptType`
+### Types
 
-Detects the dominant script in the given lines. Returns one of: `japanese`, `chinese`, `korean`, `cyrillic`, `devanagari`, `gujarati`, `gurmukhi`, `telugu`, `kannada`, `odia`, `tamil`, `malayalam`, `bengali`, `arabic`, `hebrew`, `thai`, `latin`, `other`.
+```ts
+type ScriptType =
+  | 'japanese' | 'chinese' | 'korean' | 'cyrillic'
+  | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
+  | 'kannada' | 'odia' | 'tamil' | 'malayalam'
+  | 'bengali' | 'arabic' | 'hebrew' | 'thai'
+  | 'latin' | 'other';
 
-### `isLatinScript(lines: readonly string[]): boolean`
+interface Romanizer {
+  romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
+  romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+}
 
-Fast check for whether the text is Latin-only (no non-Latin characters).
+type RomanizeOptions = { script?: ScriptType };
+type RomanizeResult = { script: ScriptType; lines: string[] };
+type RomanizerOptions = { japaneseDictPath?: string };
+```
 
-### `requiresExternalRomanization(script: ScriptType): boolean`
+### Functions
 
-Returns `true` for scripts that cannot be romanized locally (`malayalam`, `bengali`, `arabic`, `hebrew`, `other`).
+#### `createRomanizer(options?)`
 
-### `createRomanizer(options?: { japaneseDictPath?: string }): Romanizer`
+Factory that returns a `Romanizer` instance. The Kuroshiro engine (Japanese) is lazily initialized on first use and cached.
 
-Creates a romanizer instance. The optional `japaneseDictPath` overrides the default [Kuromoji](https://github.com/takuyaa/kuromoji.js) dictionary CDN path.
+```ts
+const romanizer = createRomanizer();
 
-### `Romanizer.romanizeLine(line: string, options?: { script?: ScriptType }): Promise<string>`
+// Override the Kuromoji dictionary CDN path (e.g. for self-hosting)
+const romanizer = createRomanizer({
+  japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
+});
+```
 
-Romanizes a single line. If `script` is omitted, it is auto-detected.
+#### `detectScript(lines)`
 
-### `Romanizer.romanizeLines(lines: readonly string[], options?: { script?: ScriptType }): Promise<{ script: ScriptType, lines: string[] }>`
+Detects the dominant script in the given text lines. Checks for Japanese kana first (definitive), then scores all other scripts by character count.
 
-Romanizes multiple lines at once.
+```ts
+detectScript(['こんにちは']);          // 'japanese'
+detectScript(['你好世界']);            // 'chinese'
+detectScript(['Привет']);             // 'cyrillic'
+detectScript(['Hello world']);        // 'latin'
+detectScript(['123 ???']);            // 'other'
+```
 
-## Supported Local Scripts
+#### `isLatinScript(lines)`
 
-| Script | Library |
-|--------|---------|
-| Japanese | [@sglkc/kuroshiro](https://github.com/sglkc/kuroshiro-ts) + [kuromoji](https://github.com/takuyaa/kuromoji.js) |
-| Chinese | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) |
-| Korean | [@romanize/korean](https://github.com/kntng/romanize) |
-| Cyrillic (Russian/Ukrainian) | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) |
-| Devanagari, Gujarati, Gurmukhi, Telugu, Kannada, Odia | [@indic-transliteration/sanscript](https://github.com/indic-transliteration/sanscript.js) |
-| Tamil | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) |
-| Thai | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) |
-| Latin | no-op (returned as-is) |
+Fast check — returns `true` if the text contains only Latin letters (no CJK, Cyrillic, Indic, etc.). Useful for skipping romanization entirely.
 
-## External Romanization Scripts
+```ts
+isLatinScript(['Hello world']);  // true
+isLatinScript(['안녕하세요']);    // false
+isLatinScript(['♪♪♪']);         // false (no letters)
+```
 
-`malayalam`, `bengali`, `arabic`, `hebrew`, and `other` are marked as external. Use `requiresExternalRomanization(script)` to branch to an API-based romanizer. Calling `romanizeLine`/`romanizeLines` for these throws `UnsupportedRomanizationError`.
+#### `requiresExternalRomanization(script)`
+
+Returns `true` for scripts that cannot be romanized locally and require an external API.
+
+```ts
+requiresExternalRomanization('chinese');   // false
+requiresExternalRomanization('arabic');    // true
+requiresExternalRomanization('malayalam'); // true
+```
+
+### `Romanizer` Interface
+
+#### `romanizer.romanizeLine(line, options?)`
+
+Romanizes a single line. If `script` is omitted, it is auto-detected via `detectScript`. Returns the original line unchanged for Latin text or non-letter content.
+
+**Throws** `UnsupportedRomanizationError` for external scripts.
+
+```ts
+await romanizer.romanizeLine('你好世界');
+// 'nǐ hǎo shì jiè'
+
+await romanizer.romanizeLine('Привет мир');
+// 'Privet mir'
+
+await romanizer.romanizeLine('Hello world');
+// 'Hello world' (no-op)
+
+await romanizer.romanizeLine('مرحبا');
+// throws UnsupportedRomanizationError { script: 'arabic' }
+```
+
+#### `romanizer.romanizeLines(lines, options?)`
+
+Romanizes multiple lines in parallel. Returns the detected script and romanized lines.
+
+```ts
+const { script, lines } = await romanizer.romanizeLines([
+  'สวัสดี',
+  'ชาวโลก',
+]);
+// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+```
+
+### `UnsupportedRomanizationError`
+
+Thrown when attempting to romanize a script that requires an external API. Has a `script` property for programmatic handling.
+
+```ts
+try {
+  await romanizer.romanizeLine('مرحبا');
+} catch (err) {
+  if (err instanceof UnsupportedRomanizationError) {
+    console.log(err.script); // 'arabic'
+    // fall back to external API
+  }
+}
+```
+
+## Supported Scripts
+
+### Local (fully offline)
+
+| Script | Engine | Example |
+|--------|--------|---------|
+| Japanese | [kuroshiro](https://github.com/sglkc/kuroshiro-ts) + [kuromoji](https://github.com/takuyaa/kuromoji.js) | `こんにちは` → `konnichiha` |
+| Chinese | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) | `你好` → `nǐ hǎo` |
+| Korean | [@romanize/korean](https://github.com/kntng/romanize) | `안녕` → `annyeong` |
+| Cyrillic | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
+| Devanagari | [sanscript](https://github.com/indic-transliteration/sanscript.js) | `नमस्ते` → `namaste` |
+| Gujarati | sanscript | `નમસ્તે` → `namaste` |
+| Gurmukhi | sanscript | `ਨਮਸਤੇ` → `namaste` |
+| Telugu | sanscript | `నమస్తే` → `namaste` |
+| Kannada | sanscript | `ನಮಸ್ತೆ` → `namaste` |
+| Odia | sanscript | `ନମସ୍ତେ` → `namaste` |
+| Tamil | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
+| Thai | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| Latin | *(no-op)* | `Hello` → `Hello` |
+
+### External (requires API)
+
+`malayalam`, `bengali`, `arabic`, `hebrew`, `other` — use `requiresExternalRomanization()` to detect these and branch to your preferred API.
+
+## Cyrillic Detection
+
+Cyrillic auto-detects Ukrainian-specific characters (`і`, `ї`, `є`, `ґ`) and applies the Ukrainian transliteration preset. All other Cyrillic text defaults to Russian.
 
 ## License
 
