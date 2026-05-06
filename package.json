@@ -40,7 +40,8 @@
     "@sglkc/kuroshiro-analyzer-kuromoji": "^1.0.1",
     "cyrillic-to-translit-js": "^3.2.1",
     "pinyin-pro": "^3.28.0",
-    "tamil-romanizer": "^1.0.2"
+    "tamil-romanizer": "^1.0.2",
+    "transliteration": "^2.6.1"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

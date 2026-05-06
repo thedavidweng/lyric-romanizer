@@ -177,6 +177,7 @@ try {
 
 | Script | Engine | Example |
 |--------|--------|---------|
+| Universal *(fallback)* | [transliteration](https://github.com/nickclaw/transliteration) | `Привет` → `Privet` |
 | Japanese | [kuroshiro](https://github.com/sglkc/kuroshiro-ts) + [kuromoji](https://github.com/takuyaa/kuromoji.js) | `こんにちは` → `konnichiha` |
 | Chinese | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) | `你好` → `nǐ hǎo` |
 | Korean | [@romanize/korean](https://github.com/kntng/romanize) | `안녕` → `annyeong` |
@@ -192,7 +193,15 @@ try {
 
 ### External (requires API)
 
-`malayalam`, `bengali`, `arabic`, `hebrew`, `other` — use `requiresExternalRomanization()` to detect these and branch to your preferred API.
+| Script | Method |
+|--------|--------|
+| Malayalam | Google Translate `dt=rm` |
+| Bengali | Google Translate `dt=rm` |
+| Arabic | Google Translate `dt=rm` |
+| Hebrew | Google Translate `dt=rm` |
+| Other | Google Translate `dt=rm` |
+
+Use `requiresExternalRomanization()` to detect these and branch to your preferred API.
 
 ## Cyrillic Detection
 

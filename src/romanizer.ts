@@ -6,6 +6,7 @@ import Sanscript from '@indic-transliteration/sanscript';
 import { romanize as romanizeKorean } from '@romanize/korean';
 import romanizeThai from '@dehoist/romanize-thai';
 import { romanize as romanizeTamil } from 'tamil-romanizer';
+import { transliterate } from 'transliteration';
 import { detectScript } from './detector.js';
 import type {
   RomanizeOptions,
@@ -58,38 +59,42 @@ class DefaultRomanizer implements Romanizer {
       throw new UnsupportedRomanizationError(script);
     }
 
-    switch (script) {
-      case 'japanese': {
-        const k = await this.getKuroshiro();
-        return k.convert(line, { to: 'romaji', mode: 'spaced' });
-      }
-      case 'chinese':
-        return pinyin(line, { toneType: 'symbol', type: 'string' });
-      case 'korean':
-        return romanizeKorean(line);
-      case 'cyrillic':
-        return /[іїєґ]/i.test(line)
-          ? cyrillicTranslitUk.transform(line)
-          : cyrillicTranslitRu.transform(line);
-      case 'devanagari':
-      case 'gujarati':
-      case 'gurmukhi':
-      case 'telugu':
-      case 'kannada':
-      case 'odia': {
-        const scheme = SANSCRIPT_SCHEME[script];
-        if (!scheme) throw new Error(`Missing Sanscript scheme mapping for '${script}'.`);
-        if (!(Sanscript as any).schemes?.[scheme]) {
-          throw new Error(`Sanscript does not support scheme '${scheme}' for '${script}'.`);
+    try {
+      switch (script) {
+        case 'japanese': {
+          const k = await this.getKuroshiro();
+          return k.convert(line, { to: 'romaji', mode: 'spaced' });
         }
-        return Sanscript.t(line, scheme, 'iast');
+        case 'chinese':
+          return pinyin(line, { toneType: 'symbol', type: 'string' });
+        case 'korean':
+          return romanizeKorean(line);
+        case 'cyrillic':
+          return /[іїєґ]/i.test(line)
+            ? cyrillicTranslitUk.transform(line)
+            : cyrillicTranslitRu.transform(line);
+        case 'devanagari':
+        case 'gujarati':
+        case 'gurmukhi':
+        case 'telugu':
+        case 'kannada':
+        case 'odia': {
+          const scheme = SANSCRIPT_SCHEME[script];
+          if (!scheme) throw new Error(`Missing Sanscript scheme mapping for '${script}'.`);
+          if (!(Sanscript as any).schemes?.[scheme]) {
+            throw new Error(`Sanscript does not support scheme '${scheme}' for '${script}'.`);
+          }
+          return Sanscript.t(line, scheme, 'iast');
+        }
+        case 'tamil':
+          return romanizeTamil(line);
+        case 'thai':
+          return romanizeThai(line);
+        default:
+          return transliterate(line);
       }
-      case 'tamil':
-        return romanizeTamil(line);
-      case 'thai':
-        return romanizeThai(line);
-      default:
-        throw new UnsupportedRomanizationError(script);
+    } catch {
+      return transliterate(line);
     }
   }
 
