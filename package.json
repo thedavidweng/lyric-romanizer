@@ -67,5 +67,6 @@
   "bugs": {
     "url": "https://github.com/thedavidweng/lyric-romanizer/issues"
   },
-  "homepage": "https://github.com/thedavidweng/lyric-romanizer#readme"
+  "homepage": "https://github.com/thedavidweng/lyric-romanizer#readme",
+  "packageManager": "pnpm@10.33.3"
 }
