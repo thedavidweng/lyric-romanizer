@@ -179,7 +179,7 @@ try {
 |--------|--------|---------|
 | Universal *(fallback)* | [transliteration](https://github.com/nickclaw/transliteration) | `Привет` → `Privet` |
 | Japanese | [kuroshiro](https://github.com/sglkc/kuroshiro-ts) + [kuromoji](https://github.com/takuyaa/kuromoji.js) | `こんにちは` → `konnichiha` |
-| Chinese | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) | `你好` → `nǐ hǎo` |
+| Mandarin | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) | `你好` → `nǐ hǎo` |
 | Korean | [@romanize/korean](https://github.com/kntng/romanize) | `안녕` → `annyeong` |
 | Cyrillic | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | Devanagari | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
