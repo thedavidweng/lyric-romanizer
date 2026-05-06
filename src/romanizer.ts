@@ -3,7 +3,7 @@ import KuromojiAnalyzer from '@sglkc/kuroshiro-analyzer-kuromoji';
 import { pinyin } from 'pinyin-pro';
 import CyrillicToTranslit from 'cyrillic-to-translit-js';
 import Sanscript from '@indic-transliteration/sanscript';
-import { romanizeKorean } from './korean.js';
+import { romanize as romanizeKorean } from '@romanize/korean';
 import romanizeThai from '@dehoist/romanize-thai';
 import { romanize as romanizeTamil } from 'tamil-romanizer';
 import { detectScript } from './detector.js';

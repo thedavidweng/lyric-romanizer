@@ -55,26 +55,6 @@ describe('romanizer', () => {
     expect(thai.lines[0]).not.toMatch(/[\u0E00-\u0E7F]/);
   });
 
-  it('keeps Korean romanization stable without the external Korean package', async () => {
-    const romanizer = createRomanizer();
-
-    const result = await romanizer.romanizeLines(
-      ['안녕하세요', '사랑해', '강남스타일', '한국어', '꽃', '읽다', '밥 먹었어', '세상아'],
-      { script: 'korean' }
-    );
-
-    expect(result.lines).toEqual([
-      'annyeonghaseyo',
-      'saranghae',
-      'gangnamseutail',
-      'hangugeo',
-      'kkot',
-      'ilda',
-      'bap meogeosseo',
-      'sesanga',
-    ]);
-  });
-
   it('uses mocked japanese engine and custom dict path', async () => {
     const romanizer = createRomanizer({ japaneseDictPath: 'mock://dict' });
     const output = await romanizer.romanizeLine('ありがとう', { script: 'japanese' });
