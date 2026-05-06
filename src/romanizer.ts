@@ -45,6 +45,7 @@ export function requiresExternalRomanization(script: ScriptType): boolean {
 class DefaultRomanizer implements Romanizer {
   private readonly japaneseDictPath: string;
   private kuroshiroReady: Promise<Kuroshiro> | null = null;
+  private jyutpingReady: Promise<typeof import('to-jyutping')> | null = null;
 
   constructor(options?: RomanizerOptions) {
     this.japaneseDictPath = options?.japaneseDictPath ?? DEFAULT_JAPANESE_DICT_PATH;
@@ -65,8 +66,18 @@ class DefaultRomanizer implements Romanizer {
           const k = await this.getKuroshiro();
           return k.convert(line, { to: 'romaji', mode: 'spaced' });
         }
-        case 'chinese':
+        case 'chinese': {
+          if (options?.dialect === 'cantonese') {
+            try {
+              const jyutping = await this.getJyutpingModule();
+              const result = jyutping.getJyutpingText(line);
+              if (result) return result;
+            } catch {
+              // fall through to pinyin
+            }
+          }
           return pinyin(line, { toneType: 'symbol', type: 'string' });
+        }
         case 'korean':
           return romanizeKorean(line);
         case 'cyrillic':
@@ -107,7 +118,7 @@ class DefaultRomanizer implements Romanizer {
       return { script, lines: [...lines] };
     }
 
-    const romanized = await Promise.all(lines.map((line) => this.romanizeLine(line, { script })));
+    const romanized = await Promise.all(lines.map((line) => this.romanizeLine(line, { script, dialect: options?.dialect })));
     return { script, lines: romanized };
   }
 
@@ -127,6 +138,16 @@ class DefaultRomanizer implements Romanizer {
       });
     }
     return this.kuroshiroReady;
+  }
+
+  private async getJyutpingModule(): Promise<typeof import('to-jyutping')> {
+    if (!this.jyutpingReady) {
+      this.jyutpingReady = import('to-jyutping').catch((e) => {
+        this.jyutpingReady = null;
+        throw e;
+      });
+    }
+    return this.jyutpingReady;
   }
 }
 

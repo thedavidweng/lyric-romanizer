@@ -24,6 +24,7 @@ export type RomanizerOptions = {
 
 export type RomanizeOptions = {
   script?: ScriptType;
+  dialect?: 'mandarin' | 'cantonese';
 };
 
 export type RomanizeResult = {

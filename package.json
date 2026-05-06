@@ -1,6 +1,6 @@
 {
   "name": "lyric-romanizer",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Script detection and local romanization engine for lyrics — supports Japanese, Chinese, Korean, Cyrillic, Indic scripts, Tamil, Thai, and more",
   "license": "MIT",
   "type": "module",
@@ -41,6 +41,7 @@
     "cyrillic-to-translit-js": "^3.2.1",
     "pinyin-pro": "^3.28.0",
     "tamil-romanizer": "^1.0.2",
+    "to-jyutping": "^3.1.1",
     "transliteration": "^2.6.1"
   },
   "devDependencies": {

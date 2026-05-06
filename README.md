@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/lyric-romanizer.svg)](https://www.npmjs.com/package/lyric-romanizer)
 [![license](https://img.shields.io/npm/l/lyric-romanizer.svg)](https://github.com/thedavidweng/lyric-romanizer/blob/main/LICENSE)
 
-Script detection and local romanization engine for lyrics. Supports 12 scripts across Japanese, Chinese, Korean, Cyrillic, Indic, Tamil, and Thai — all running locally with zero API calls.
+Script detection and local romanization engine for lyrics. Supports 12 scripts across Japanese, Chinese (Mandarin and Cantonese), Korean, Cyrillic, Indic, Tamil, and Thai — all running locally with zero API calls.
 
 Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke). Used by [OpenKara](https://github.com/thedavidweng/openkara).
 
@@ -70,7 +70,7 @@ interface Romanizer {
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
-type RomanizeOptions = { script?: ScriptType };
+type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
 type RomanizeResult = { script: ScriptType; lines: string[] };
 type RomanizerOptions = { japaneseDictPath?: string };
 ```
@@ -128,11 +128,16 @@ requiresExternalRomanization('malayalam'); // true
 
 Romanizes a single line. If `script` is omitted, it is auto-detected via `detectScript`. Returns the original line unchanged for Latin text or non-letter content.
 
+For Chinese text, the `dialect` option controls the romanization system: `'mandarin'` (default) uses Pinyin, `'cantonese'` uses [Jyutping](https://github.com/CanCLID/to-jyutping).
+
 **Throws** `UnsupportedRomanizationError` for external scripts.
 
 ```ts
 await romanizer.romanizeLine('你好世界');
-// 'nǐ hǎo shì jiè'
+// 'nǐ hǎo shì jiè' (default: Mandarin/Pinyin)
+
+await romanizer.romanizeLine('你好', { dialect: 'cantonese' });
+// 'nei5 hou2' (Jyutping)
 
 await romanizer.romanizeLine('Привет мир');
 // 'Privet mir'
@@ -180,6 +185,7 @@ try {
 | Universal *(fallback)* | [transliteration](https://github.com/nickclaw/transliteration) | `Привет` → `Privet` |
 | Japanese | [kuroshiro](https://github.com/sglkc/kuroshiro-ts) + [kuromoji](https://github.com/takuyaa/kuromoji.js) | `こんにちは` → `konnichiha` |
 | Mandarin | [pinyin-pro](https://github.com/zh-lx/pinyin-pro) | `你好` → `nǐ hǎo` |
+| Cantonese | [to-jyutping](https://github.com/CanCLID/to-jyutping) | `佢冇` → `keoi5 mou5` |
 | Korean | [@romanize/korean](https://github.com/kntng/romanize) | `안녕` → `annyeong` |
 | Cyrillic | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | Devanagari | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
@@ -206,6 +212,18 @@ Use `requiresExternalRomanization()` to detect these and branch to your preferre
 ## Cyrillic Detection
 
 Cyrillic auto-detects Ukrainian-specific characters (`і`, `ї`, `є`, `ґ`) and applies the Ukrainian transliteration preset. All other Cyrillic text defaults to Russian.
+
+## Cantonese Support
+
+Chinese text defaults to Mandarin (Pinyin). Pass `dialect: 'cantonese'` in `RomanizeOptions` to romanize Chinese text to [Jyutping](https://github.com/CanCLID/to-jyutping) instead.
+
+```ts
+const { lines } = await romanizer.romanizeLines(['你好世界', '食飯'], {
+  script: 'chinese',
+  dialect: 'cantonese',
+});
+// ['nei5 hou2 sai3 gaai3', 'sik6 faan6']
+```
 
 ## License
 
