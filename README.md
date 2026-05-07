@@ -3,9 +3,23 @@
 [![npm version](https://img.shields.io/npm/v/lyric-romanizer.svg)](https://www.npmjs.com/package/lyric-romanizer)
 [![license](https://img.shields.io/npm/l/lyric-romanizer.svg)](https://github.com/thedavidweng/lyric-romanizer/blob/main/LICENSE)
 
+[English](https://github.com/thedavidweng/lyric-romanizer#readme) | [日本語](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.ja.md) | [中文（简体）](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.zh-CN.md) | [中文（粵語）](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.zh-yue.md) | [한국어](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.ko.md) | [Русский](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.ru.md) | [हिन्दी](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.hi.md) | [தமிழ்](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.ta.md) | [ไทย](https://github.com/thedavidweng/lyric-romanizer/blob/main/docs/README.th.md)
+
+> **Philosophy: Don't reinvent the wheel.**
+> This project deliberately avoids building romanization logic from scratch. Instead, it composes best-in-class, community-maintained libraries — one for each script — and focuses on the orchestration layer: script detection, engine routing, dialect handling, and a unified API. Every romanization engine in the dependency list is a dedicated, battle-tested library maintained by domain experts. That's the point.
+
 Script detection and local romanization engine for lyrics. Supports 12 scripts across Japanese, Chinese (Mandarin and Cantonese), Korean, Cyrillic, Indic, Tamil, and Thai — all running locally with zero API calls.
 
 Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke). Used by [OpenKara](https://github.com/thedavidweng/openkara).
+
+## Features
+
+- **Zero API calls** — all romanization runs locally
+- **Auto script detection** — pass in text, get back the detected script
+- **12+ scripts** — Japanese, Chinese, Korean, Cyrillic, 7 Indic scripts, Tamil, Thai
+- **Cantonese support** — Jyutping alongside default Mandarin Pinyin
+- **Lightweight detector subpath** — import only script detection without pulling in romanization engines
+- **Ukrainian-aware Cyrillic** — auto-detects Ukrainian-specific characters and applies the correct transliteration preset
 
 ## Installation
 
@@ -75,9 +89,7 @@ type RomanizeResult = { script: ScriptType; lines: string[] };
 type RomanizerOptions = { japaneseDictPath?: string };
 ```
 
-### Functions
-
-#### `createRomanizer(options?)`
+### `createRomanizer(options?)`
 
 Factory that returns a `Romanizer` instance. The Kuroshiro engine (Japanese) is lazily initialized on first use and cached.
 
@@ -90,7 +102,7 @@ const romanizer = createRomanizer({
 });
 ```
 
-#### `detectScript(lines)`
+### `detectScript(lines)`
 
 Detects the dominant script in the given text lines. Checks for Japanese kana first (definitive), then scores all other scripts by character count.
 
@@ -102,7 +114,7 @@ detectScript(['Hello world']);        // 'latin'
 detectScript(['123 ???']);            // 'other'
 ```
 
-#### `isLatinScript(lines)`
+### `isLatinScript(lines)`
 
 Fast check — returns `true` if the text contains only Latin letters (no CJK, Cyrillic, Indic, etc.). Useful for skipping romanization entirely.
 
@@ -112,7 +124,7 @@ isLatinScript(['안녕하세요']);    // false
 isLatinScript(['♪♪♪']);         // false (no letters)
 ```
 
-#### `requiresExternalRomanization(script)`
+### `requiresExternalRomanization(script)`
 
 Returns `true` for scripts that cannot be romanized locally and require an external API.
 
@@ -122,9 +134,7 @@ requiresExternalRomanization('arabic');    // true
 requiresExternalRomanization('malayalam'); // true
 ```
 
-### `Romanizer` Interface
-
-#### `romanizer.romanizeLine(line, options?)`
+### `romanizer.romanizeLine(line, options?)`
 
 Romanizes a single line. If `script` is omitted, it is auto-detected via `detectScript`. Returns the original line unchanged for Latin text or non-letter content.
 
@@ -149,7 +159,7 @@ await romanizer.romanizeLine('مرحبا');
 // throws UnsupportedRomanizationError { script: 'arabic' }
 ```
 
-#### `romanizer.romanizeLines(lines, options?)`
+### `romanizer.romanizeLines(lines, options?)`
 
 Romanizes multiple lines in parallel. Returns the detected script and romanized lines.
 
@@ -192,7 +202,7 @@ try {
 | Gujarati | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
 | Gurmukhi | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
 | Telugu | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| Kannada | [sanscript](https://github.com/indic-transliteration/sanscript) | `నಮస్తె` → `namaste` |
+| Kannada | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
 | Odia | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | Tamil | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
 | Thai | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
@@ -209,11 +219,13 @@ try {
 
 Use `requiresExternalRomanization()` to detect these and branch to your preferred API.
 
-## Cyrillic Detection
+## Script-Specific Notes
+
+### Cyrillic Detection
 
 Cyrillic auto-detects Ukrainian-specific characters (`і`, `ї`, `є`, `ґ`) and applies the Ukrainian transliteration preset. All other Cyrillic text defaults to Russian.
 
-## Cantonese Support
+### Cantonese Support
 
 Chinese text defaults to Mandarin (Pinyin). Pass `dialect: 'cantonese'` in `RomanizeOptions` to romanize Chinese text to [Jyutping](https://github.com/CanCLID/to-jyutping) instead.
 
