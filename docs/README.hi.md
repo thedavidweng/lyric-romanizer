@@ -6,7 +6,7 @@
 > **दर्शन: पहिया दोबारा न इजाद करो।**
 > इस परियोजना में जानबूझकर रोमनाइज़ेशन तर्क को शुरू से बनाने से बचा गया है। इसके बजाय, यह प्रत्येक लिपि के लिए समुदाय-अनुरक्षित बेहतरीन लाइब्रेरियों को जोड़ता है — ऑर्केस्ट्रेशन परत पर ध्यान केंद्रित करते हुए: लिपि पहचान, इंजन रूटिंग, बोली प्रसंस्करण, और एकीकृत API। निर्भता सूची में प्रत्येक रोमनाइज़ेशन इंजन डोमेन विशेषज्ञों द्वारा अनुरक्षित, परीक्षित लाइब्रेरी है। यही इस परियोजना का मूल विचार है।
 
-गीतों के लिए लिपि पहचान और स्थानीय रोमनाइज़ेशन इंजन। जापानी, चीनी (मंदारिन और कैंटोनीज़), कोरियाई, सिरिलिक, भारतीय लिपियाँ, तमिल, और थाई सहित 12+ लिपियों का समर्थन करता है — सब स्थानीय रूप से, बिना किसी API कॉल के।
+गीतों के लिए लिपि पहचान और स्थानीय रोमनाइज़ेशन इंजन। जापानी, चीनी (मंदारिन और कैंटोनीज़), कोरियाई, सिरिलिक, भारतीय लिपियाँ, तमिल, और थाई सहित 12 लिपियों का समर्थन करता है — सब स्थानीय रूप से, बिना किसी API कॉल के।
 
 [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke) से निकाला गया। [OpenKara](https://github.com/thedavidweng/openkara) द्वारा उपयोग किया जाता है।
 
@@ -16,10 +16,14 @@
 
 - **शून्य API कॉल** — सभी रोमनाइज़ेशन स्थानीय रूप से चलता है
 - **स्वचालित लिपि पहचान** — पाठ दें, उपयोग की गई लिपि मिलेगी
-- **12+ लिपियाँ** — जापानी, चीनी, कोरियाई, सिरिलिक, 7 भारतीय लिपियाँ, तमिल, थाई
+- **12+ लिपियाँ** — जापानी, चीनी, कोरियाई, सिरिलिक, 6 भारतीय लिपियाँ, तमिल, थाई
 - **कैंटोनीज़ समर्थन** — डिफ़ॉल्ट मंदारिन पिनयिन के साथ-साथ कैंटोनीज़ ज्युटपिंग (Jyutping)
-- **हल्का पहचान उपपथ** — रोमनाइज़ेशन इंजन के बिना केवल लिपि पहचान आयात करें
+- **हल्का पहचान उपपथ** — रोमनाइज़ेशन इंजन शामिल किए बिना केवल लिपि पहचान (और बाहरी-लिपि वर्गीकरण) आयात करें
+- **आलसी इंजन** — प्रत्येक इंजन पहले उपयोग पर लोड होता है; जब तक आप रोमनाइज़ न करें, मुख्य प्रविष्टि आयात करने की कोई लागत नहीं
+- **प्लग-योग्य इंजन** — किसी भी अंतर्निर्मित इंजन को ओवरराइड करें, या बाहरी रूप से रोमनाइज़ की जाने वाली लिपियों के लिए अपना स्वयं का एडाप्टर प्लग करें
+- **अवलोकनीय फ़ॉलबैक** — प्रति-पंक्ति फ़्लैग बताते हैं कि कब कोई इंजन विफल हुआ और किसी पंक्ति को अंतिम उपाय के रूप में लिप्यंतरित किया गया
 - **यूक्रेनी-सचेत सिरिलिक** — यूक्रेनी विशिष्ट वर्णों की स्वचालित पहचान और सही लिप्यंतरण प्रीसेट लागू करें
+- **सादे Node ESM में चलता है** — किसी बंडलर की आवश्यकता नहीं
 
 ## स्थापना
 
@@ -43,13 +47,15 @@ import { createRomanizer, detectScript } from 'lyric-romanizer';
 const romanizer = createRomanizer();
 
 // लिपि स्वचालित पहचान और रोमनाइज़ेशन
-const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
-// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'こんにちは'] }
+const result = await romanizer.romanizeLines(['你好世界', '很高兴认识你']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'hěn gāo xìng rèn shi nǐ'], fallbacks: [false, false] }
 
 // एक पंक्ति का रोमनाइज़ेशन
 const line = await romanizer.romanizeLine('안녕하세요');
 // 'annyeonghaseyo'
 ```
+
+> **पहचान की सूक्ष्मता** — `romanizeLines` **सभी पंक्तियों में एक बार** प्रमुख लिपि का पता लगाता है और उसे हर पंक्ति के लिए पिन कर देता है (जानबूझकर: किसी जापानी गीत के भीतर केवल-कांजी वाली पंक्तियों को जापानी इंजन तक पहुँचना ज़रूरी है, और सरणी में कोई भी काना `japanese` को पिन कर देता है)। इसके बजाय `romanizeLine` को लूप में कॉल करने पर **प्रति पंक्ति** पहचान होती है और यह प्रत्येक पंक्ति को अलग इंजन पर रूट कर सकता है। पिन की गई लिपि के अंतर्गत शुद्ध-लैटिन पंक्तियाँ जैसी की वैसी लौटाई जाती हैं। देखें **मिश्रित-लिपि सरणियाँ**।
 
 ## API
 
@@ -66,7 +72,12 @@ import {
 } from 'lyric-romanizer';
 
 // केवल पहचान उपपथ — हल्का, रोमनाइज़ेशन निर्भता रहित
-import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
+import {
+  detectScript,
+  isLatinScript,
+  requiresExternalRomanization,
+  NON_LATIN_SCRIPT_RE,
+} from 'lyric-romanizer/detector';
 ```
 
 ### प्रकार
@@ -77,21 +88,33 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'other';
+  | 'latin' | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
+// `dialect` केवल 'chinese' के लिए लागू होता है; बाकी हर लिपि इसे अनदेखा करती है।
 type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
-type RomanizeResult = { script: ScriptType; lines: string[] };
-type RomanizerOptions = { japaneseDictPath?: string };
+
+// `fallbacks` `lines` के साथ संरेखित है: true वहाँ जहाँ इंजन विफल हुआ और
+// पंक्ति को अंतिम उपाय के रूप में यूनिवर्सल रूप से लिप्यंतरित किया गया।
+type RomanizeResult = { script: ScriptType; lines: string[]; fallbacks?: boolean[] };
+
+// एक इंजन एडाप्टर: अपनी लिपि की एक पंक्ति को रोमनाइज़ करता है। फेंकना (या
+// अस्वीकार करना) यूनिवर्सल लिप्यंतरण फ़ॉलबैक को ट्रिगर करता है।
+type RomanizeEngine = (line: string, context: { dialect: 'mandarin' | 'cantonese' }) => string | Promise<string>;
+
+type RomanizerOptions = {
+  japaneseDictPath?: string;
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
+};
 ```
 
 ### `createRomanizer(options?)`
 
-फ़ैक्टरी जो `Romanizer` इंस्टेंस लौटाता है। Kuroshiro इंजन (जापानी) पहले उपयोग पर आलसी प्रारंभ होता है और कैश होता है।
+फ़ैक्टरी जो `Romanizer` इंस्टेंस लौटाता है। प्रत्येक इंजन पहले उपयोग पर आलसी रूप से लोड होता है और कैश होता है — विफल लोड अगली कॉल पर पुनः प्रयास करता है।
 
 ```ts
 const romanizer = createRomanizer();
@@ -101,6 +124,26 @@ const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
 ```
+
+#### इंजन एडाप्टर
+
+`options.engines` किसी लिपि के लिए अंतर्निर्मित इंजन को ओवरराइड करता है — या ऐसी लिपि में इंजन प्लग करता है जिसमें कोई अंतर्निर्मित इंजन नहीं है (`arabic`, `hebrew`, `malayalam`, `bengali`, `other`), ताकि `romanizeLines` हर लिपि को एक ही इंटरफ़ेस के माध्यम से संभाल सके। डिफ़ॉल्ट रूप से लाइब्रेरी **शून्य नेटवर्क I/O** करती है; रिमोट एडाप्टर प्लग करना कॉलर का स्पष्ट निर्णय है।
+
+```ts
+const romanizer = createRomanizer({
+  engines: {
+    // स्थानीय इंजन रहित लिपियों के लिए अपना स्वयं का बाहरी रोमनाइज़ेशन लाएँ।
+    arabic: async (line) => myTransliterationApi(line),
+    // या किसी अंतर्निर्मित इंजन को बदलें (उदा. परीक्षणों में नकली इंजन से)।
+    korean: (line) => myKoreanRomanizer(line),
+  },
+});
+
+await romanizer.romanizeLines(['مرحبا']);
+// { script: 'arabic', lines: [...], fallbacks: [false] } — अब और नहीं फेंकता
+```
+
+बिना किसी इंजन वाली लिपियाँ — अंतर्निर्मित या इंजेक्ट की गई — अब भी `UnsupportedRomanizationError` फेंकती हैं।
 
 ### `detectScript(lines)`
 
@@ -126,7 +169,7 @@ isLatinScript(['♪♪♪']);         // false (कोई अक्षर नह
 
 ### `requiresExternalRomanization(script)`
 
-उन लिपियों के लिए `true` लौटाता है जिन्हें स्थानीय रूप से रोमनाइज़ नहीं किया जा सकता और जिन्हें बाहरी API की आवश्यकता है।
+उन लिपियों के लिए `true` लौटाता है जिनमें कोई अंतर्निर्मित इंजन नहीं है और जिन्हें बाहरी API की आवश्यकता है। हल्के `lyric-romanizer/detector` उपपथ से आयात करने योग्य, इसलिए "क्या मुझे किसी बाहरी सेवा की ओर शाखा बनानी चाहिए?" का उत्तर देने में शून्य इंजन पेलोड लगता है।
 
 ```ts
 requiresExternalRomanization('chinese');   // false
@@ -136,15 +179,15 @@ requiresExternalRomanization('malayalam'); // true
 
 ### `romanizer.romanizeLine(line, options?)`
 
-एक पंक्ति का रोमनाइज़ेशन करता है। `script` छोड़ने पर `detectScript` से स्वचालित पहचान होती है। लैटिन पाठ या बिना अक्षर वाली सामग्री जैसी की वैसी लौटती है।
+एक पंक्ति का रोमनाइज़ेशन करता है। यदि `script` छोड़ दिया जाए, तो `detectScript` के माध्यम से **प्रति पंक्ति** स्वचालित रूप से पहचाना जाता है — `romanizeLine` पर लूप करने से प्रत्येक पंक्ति अलग इंजन पर रूट हो सकती है, `romanizeLines` के विपरीत, जो पूरी सरणी के लिए एक ही लिपि पिन करता है। लैटिन पाठ या बिना अक्षर वाली सामग्री के लिए मूल पंक्ति जैसी की वैसी लौटाता है।
 
-चीनी पाठ के लिए `dialect` विकल्प रोमनाइज़ेशन प्रणाली को नियंत्रित करता है: `'mandarin'` (डिफ़ॉल्ट) पिनयिन का उपयोग करता है, `'cantonese'` [Jyutping](https://github.com/CanCLID/to-jyutping) का उपयोग करता है।
+चीनी पाठ के लिए `dialect` विकल्प रोमनाइज़ेशन प्रणाली को नियंत्रित करता है: `'mandarin'` (डिफ़ॉल्ट) पिनयिन का उपयोग करता है, `'cantonese'` [Jyutping](https://github.com/CanCLID/to-jyutping) का उपयोग करता है। अन्य लिपियाँ `dialect` को अनदेखा करती हैं।
 
-**बाहरी लिपियों के लिए** `UnsupportedRomanizationError` फेंकता है।
+बिना किसी इंजन (अंतर्निर्मित या इंजेक्ट की गई) वाली लिपियों के लिए `UnsupportedRomanizationError` **फेंकता है**।
 
 ```ts
-await romanizer.romanizeLine('नमस्ते दुनिया');
-// 'namaste duniya'
+await romanizer.romanizeLine('你好世界');
+// 'nǐ hǎo shì jiè' (डिफ़ॉल्ट: मंदारिन/पिनयिन)
 
 await romanizer.romanizeLine('你好', { dialect: 'cantonese' });
 // 'nei5 hou2' (Jyutping)
@@ -161,19 +204,19 @@ await romanizer.romanizeLine('مرحبا');
 
 ### `romanizer.romanizeLines(lines, options?)`
 
-कई पंक्तियों का समानांतर रोमनाइज़ेशन करता है। पहचानी गई लिपि और रोमनाइज़ की गई पंक्तियाँ लौटाता है।
+कई पंक्तियों का समानांतर में रोमनाइज़ेशन करता है। **सभी पंक्तियों में एक बार** प्रमुख लिपि का पता लगाता है और उसे हर पंक्ति के लिए पिन करता है (देखें **मिश्रित-लिपि सरणियाँ**)। लिपि, रोमनाइज़ की गई पंक्तियाँ, और प्रति-पंक्ति `fallbacks` फ़्लैग लौटाता है — `true` वहाँ जहाँ इंजन विफल हुआ और पंक्ति को अंतिम उपाय के रूप में यूनिवर्सल रूप से लिप्यंतरित किया गया।
 
 ```ts
-const { script, lines } = await romanizer.romanizeLines([
+const { script, lines, fallbacks } = await romanizer.romanizeLines([
   'สวัสดี',
   'ชาวโลก',
 ]);
-// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+// { script: 'thai', lines: ['swasdi', 'chaolok'], fallbacks: [false, false] }
 ```
 
 ### `UnsupportedRomanizationError`
 
-जब बाहरी API की आवश्यकता वाली लिपि का रोमनाइज़ेशन करने का प्रयास किया जाता है तो फेंका जाता है। प्रोग्रामेटिक प्रसंस्करण के लिए `script` गुण है।
+जब ऐसी लिपि का रोमनाइज़ेशन करने का प्रयास किया जाता है जिसमें कोई इंजन नहीं है — न अंतर्निर्मित और न ही `options.engines` के माध्यम से इंजेक्ट किया गया — तब फेंका जाता है। प्रोग्रामेटिक प्रसंस्करण के लिए `script` गुण है।
 
 ```ts
 try {
@@ -200,12 +243,12 @@ try {
 | सिरिलिक | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | देवनागरी | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
 | गुजराती | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
-| गुरमुखी | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| गुरमुखी | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namasate` |
 | तेलुगु | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| कन्नड़ | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
+| कन्नड़ | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೇ` → `namaste` |
 | ओडिया | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | तमिल | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
-| थाई | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| थाई | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `swasdi` |
 
 ### बाहरी API आवश्यक
 
@@ -217,9 +260,20 @@ try {
 | हिब्रू | Google Translate `dt=rm` |
 | अन्य | Google Translate `dt=rm` |
 
-इनका पता लगाने और अपने पसंदीदा API पर स्विच करने के लिए `requiresExternalRomanization()` का उपयोग करें।
+इनका पता लगाने और अपने पसंदीदा API पर स्विच करने के लिए `requiresExternalRomanization()` का उपयोग करें — या API को एक बार **इंजन एडाप्टर** के रूप में प्लग करें और `romanizeLines` को हर लिपि संभालने दें।
 
 ## लिपि-विशिष्ट नोट्स
+
+### मिश्रित-लिपि सरणियाँ
+
+`romanizeLines` पूरी सरणी की **प्रमुख** लिपि को हर पंक्ति पर पिन करता है। यह जानबूझकर है: किसी जापानी गीत के भीतर केवल-कांजी वाली पंक्ति अपने आप में चीनी से अप्रभेद्य होती है (कांजी और हान्ज़ी एक ही Unicode ब्लॉक साझा करते हैं), इसलिए केवल पूरी-सरणी का संदर्भ ही उसे सही इंजन पर रूट करता है। जानने योग्य परिणाम:
+
+- सरणी में कहीं भी कोई भी काना पूरी सरणी को `japanese` पर पिन कर देता है — काना निर्णायक प्रमाण है।
+- सरणी के भीतर किसी *भिन्न* गैर-लैटिन लिपि की पंक्ति को भी पिन किए गए इंजन को ही दिया जाता है।
+- शुद्ध-लैटिन पंक्तियाँ (किसी CJK गीत के भीतर अंग्रेज़ी कोरस) को पिन किए गए इंजन को देने के बजाय **जैसी की वैसी लौटाया जाता है**।
+- प्रति-पंक्ति `fallbacks` फ़्लैग बताते हैं कि कब कोई इंजन विफल हुआ और कोई पंक्ति यूनिवर्सल लिप्यंतरण पर फ़ॉलबैक हो गई।
+
+यदि आपको सच्ची प्रति-पंक्ति इंजन रूटिंग चाहिए, तो `romanizeLine` को लूप में कॉल करें — यह प्रति पंक्ति पहचान करता है।
 
 ### सिरिलिक पहचान
 

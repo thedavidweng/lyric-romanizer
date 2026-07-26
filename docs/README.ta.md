@@ -16,10 +16,14 @@
 
 - **பூஜ்ஜிய API அழைப்புகள்** — அனைத்து புனைவு மொழியாக்கமும் உள்ளூராக இயங்குகிறது
 - **தானியங்கி எழுத்து கண்டறிதல்** — உரையை அனுப்புங்கள், பயன்படுத்தப்பட்ட எழுத்து கிடைக்கும்
-- **12+ எழுத்துகள்** — ஜப்பானிய, சீன, கொரியன், சிரிலிலிக், 7 இந்திய எழுத்துகள், தமிழ், தாய்
+- **12+ எழுத்துகள்** — ஜப்பானிய, சீன, கொரியன், சிரிலிலிக், 6 இந்திய எழுத்துகள், தமிழ், தாய்
 - **காண்டோனீஸ் ஆதரவு** — இயல்புநிலை மாண்டரின் பின்யின் கூடுதலாக காண்டோனீஸ் ஜூட்பிங் (Jyutping)
-- **இலகுரக கண்டறிதல் துணைப்பாதை** — புனைவு மொழியாக்க இயந்திரங்கள் இல்லாமல் எழுத்து கண்டறிதல் மட்டும் இறக்குமதி செய்யுங்கள்
+- **இலகுரக கண்டறிதல் துணைப்பாதை** — புனைவு மொழியாக்க இயந்திரங்களை இழுக்காமல் எழுத்து கண்டறிதல் (மற்றும் வெளி-எழுத்து வகைப்பாடு) மட்டும் இறக்குமதி செய்யுங்கள்
+- **சோம்பேறி இயந்திரங்கள்** — ஒவ்வொரு இயந்திரமும் முதல் பயன்பாட்டில் ஏற்றப்படுகிறது; நீங்கள் புனைவு மொழியாக்கம் செய்யும் வரை முக்கிய நுழைவை இறக்குமதி செய்வது எதுவும் செலவாகாது
+- **செருகக்கூடிய இயந்திரங்கள்** — எந்த உள்ளமைந்த இயந்திரத்தையும் மேலெழுதுங்கள், அல்லது வெளியில் புனைவு மொழியாக்கம் செய்யப்படும் எழுத்துகளுக்கு உங்கள் சொந்த அடாப்டரை செருகுங்கள்
+- **கவனிக்கத்தக்க fallbacks** — ஒரு இயந்திரம் தோல்வியடைந்து ஒரு வரி கடைசி முயற்சியாக ஒலிபெயர்க்கப்பட்டபோது, ஒவ்வொரு வரிக்குமான கொடிகள் அதை உங்களுக்குத் தெரிவிக்கின்றன
 - **உக்ரேனிய-விழிப்புணர்வு சிரிலிலிக்** — உக்ரேனிய சிறப்பு எழுத்துகளை தானாக கண்டறிதல் மற்றும் சரியான ஒலிபெயர்ப்பு முன்அமைப்பை பயன்படுத்துதல்
+- **எளிய Node ESM இல் இயங்குகிறது** — எந்த bundler-ம் தேவையில்லை
 
 ## நிறுவல்
 
@@ -43,13 +47,15 @@ import { createRomanizer, detectScript } from 'lyric-romanizer';
 const romanizer = createRomanizer();
 
 // எழுத்து தானாக கண்டறிதல் மற்றும் புனைவு மொழியாக்கம்
-const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
-// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'こんにちは'] }
+const result = await romanizer.romanizeLines(['你好世界', '很高兴认识你']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'hěn gāo xìng rèn shi nǐ'], fallbacks: [false, false] }
 
 // ஒரு வரியை புனைவு மொழியாக்கம் செய்தல்
 const line = await romanizer.romanizeLine('안녕하세요');
 // 'annyeonghaseyo'
 ```
+
+> **கண்டறிதல் நுண்மை** — `romanizeLines` ஆதிக்க எழுத்தை **அனைத்து வரிகளிலும் ஒரேமுறை** கண்டறிந்து அதை ஒவ்வொரு வரிக்கும் நிலைநிறுத்துகிறது (வேண்டுமென்றே: ஒரு ஜப்பானிய பாடலில் உள்ள கான்ஜி-மட்டும் வரிகள் ஜப்பானிய இயந்திரத்தை அடைய வேண்டும், மேலும் அணியில் உள்ள எந்த கானாவும் `japanese` ஐ நிலைநிறுத்துகிறது). அதற்குப் பதிலாக `romanizeLine` ஐ ஒரு சுழற்சியில் அழைப்பது **ஒவ்வொரு வரிக்கும் தனித்தனியாக** கண்டறிந்து ஒவ்வொரு வரியையும் வெவ்வேறு இயந்திரத்திற்கு அனுப்பக்கூடும். நிலைநிறுத்தப்பட்ட எழுத்தின் கீழ் தூய-லத்தீன் வரிகள் அப்படியே வழங்கப்படும். **கலப்பு-எழுத்து அணிகள்** பகுதியைப் பார்க்கவும்.
 
 ## API
 
@@ -66,7 +72,12 @@ import {
 } from 'lyric-romanizer';
 
 // கண்டறிதல் மட்டும் துணைப்பாதை — இலகுரக, புனைவு மொழியாக்க சார்புகள் இல்லாமல்
-import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
+import {
+  detectScript,
+  isLatinScript,
+  requiresExternalRomanization,
+  NON_LATIN_SCRIPT_RE,
+} from 'lyric-romanizer/detector';
 ```
 
 ### வகைகள்
@@ -77,21 +88,33 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'other';
+  | 'latin' | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
+// `dialect` என்பது 'chinese' க்கு மட்டுமே செல்லுபடியாகும்; மற்ற ஒவ்வொரு எழுத்தும் அதை புறக்கணிக்கிறது.
 type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
-type RomanizeResult = { script: ScriptType; lines: string[] };
-type RomanizerOptions = { japaneseDictPath?: string };
+
+// `fallbacks` என்பது `lines` உடன் ஒத்திசைக்கப்படுகிறது: இயந்திரம் தோல்வியடைந்து
+// அந்த வரி கடைசி முயற்சியாக யூனிவர்சலாக ஒலிபெயர்க்கப்பட்ட இடத்தில் true.
+type RomanizeResult = { script: ScriptType; lines: string[]; fallbacks?: boolean[] };
+
+// ஒரு இயந்திர அடாப்டர்: அதன் எழுத்தின் ஒரு வரியை புனைவு மொழியாக்கம் செய்கிறது. எறிதல் (அல்லது
+// நிராகரித்தல்) யூனிவர்சல் ஒலிபெயர்ப்பு fallback ஐ தூண்டுகிறது.
+type RomanizeEngine = (line: string, context: { dialect: 'mandarin' | 'cantonese' }) => string | Promise<string>;
+
+type RomanizerOptions = {
+  japaneseDictPath?: string;
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
+};
 ```
 
 ### `createRomanizer(options?)`
 
-`Romanizer` நிகழ்வை வழங்கும் தொழிற்சாலை. Kuroshiro இயந்திரம் (ஜப்பானிய) முதல் பயன்பாட்டில் சோம்பேறி தொடங்கப்பட்டு தேக்கமாக்கப்படும்.
+`Romanizer` நிகழ்வை வழங்கும் தொழிற்சாலை. ஒவ்வொரு இயந்திரமும் முதல் பயன்பாட்டில் சோம்பேறியாக ஏற்றப்பட்டு தேக்கமாக்கப்படும் — தோல்வியடைந்த ஏற்றம் அடுத்த அழைப்பில் மீண்டும் முயற்சிக்கும்.
 
 ```ts
 const romanizer = createRomanizer();
@@ -101,6 +124,26 @@ const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
 ```
+
+#### இயந்திர அடாப்டர்கள்
+
+`options.engines` ஒரு எழுத்துக்கான உள்ளமைந்த இயந்திரத்தை மேலெழுதுகிறது — அல்லது உள்ளமைந்த இயந்திரம் இல்லாத ஒரு எழுத்தில் (`arabic`, `hebrew`, `malayalam`, `bengali`, `other`) ஒரு இயந்திரத்தை செருகுகிறது, இதனால் `romanizeLines` ஒரே இடைமுகம் வழியாக ஒவ்வொரு எழுத்தையும் கையாள முடியும். இயல்பாக இந்த நூலகம் **பூஜ்ஜிய நெட்வொர்க் I/O** செய்கிறது; ஒரு தொலை அடாப்டரை செருகுவது அழைப்பாளரின் வெளிப்படையான முடிவாகும்.
+
+```ts
+const romanizer = createRomanizer({
+  engines: {
+    // உள்ளூர் இயந்திரம் இல்லாத எழுத்துகளுக்கு உங்கள் சொந்த வெளி புனைவு மொழியாக்கத்தை கொண்டு வாருங்கள்.
+    arabic: async (line) => myTransliterationApi(line),
+    // அல்லது ஒரு உள்ளமைந்த இயந்திரத்தை மாற்றவும் (எ.கா. சோதனைகளில் ஒரு போலியுடன்).
+    korean: (line) => myKoreanRomanizer(line),
+  },
+});
+
+await romanizer.romanizeLines(['مرحبا']);
+// { script: 'arabic', lines: [...], fallbacks: [false] } — இனி எறியாது
+```
+
+இயந்திரம் இல்லாத எழுத்துகள் — உள்ளமைந்ததோ அல்லது உட்செலுத்தப்பட்டதோ — இன்னும் `UnsupportedRomanizationError` ஐ எறியும்.
 
 ### `detectScript(lines)`
 
@@ -126,7 +169,7 @@ isLatinScript(['♪♪♪']);         // false (எழுத்துகள் �
 
 ### `requiresExternalRomanization(script)`
 
-உள்ளூராக புனைவு மொழியாக்க முடியாத, வெளி API தேவைப்படும் எழுத்துகளுக்கு `true` வழங்கும்.
+உள்ளமைந்த இயந்திரம் இல்லாத, வெளி API தேவைப்படும் எழுத்துகளுக்கு `true` வழங்கும். இலகுரக `lyric-romanizer/detector` துணைப்பாதையிலிருந்து இறக்குமதி செய்யக்கூடியது, எனவே "ஒரு வெளி சேவைக்கு கிளைபிரிய வேண்டுமா?" என்பதற்கு பதிலளிப்பதற்கு எந்த இயந்திர சுமையும் தேவையில்லை.
 
 ```ts
 requiresExternalRomanization('chinese');   // false
@@ -136,15 +179,15 @@ requiresExternalRomanization('malayalam'); // true
 
 ### `romanizer.romanizeLine(line, options?)`
 
-ஒரு வரியை புனைவு மொழியாக்கம் செய்யும். `script` தவிர்க்கப்பட்டால் `detectScript` மூலம் தானாக கண்டறியப்படும். லத்தீன் உரை அல்லது எழுத்து இல்லாத உள்ளடக்கம் அப்படியே வழங்கப்படும்.
+ஒரு வரியை புனைவு மொழியாக்கம் செய்யும். `script` தவிர்க்கப்பட்டால், அது `detectScript` மூலம் **ஒவ்வொரு வரிக்கும் தனித்தனியாக** தானாக கண்டறியப்படும் — `romanizeLine` மேல் சுழற்சி செய்வது ஒவ்வொரு வரியையும் வெவ்வேறு இயந்திரத்திற்கு அனுப்பக்கூடும், முழு அணிக்கும் ஒரே எழுத்தை நிலைநிறுத்தும் `romanizeLines` போலல்லாமல். லத்தீன் உரை அல்லது எழுத்து இல்லாத உள்ளடக்கத்திற்கு அசல் வரி அப்படியே வழங்கப்படும்.
 
-சீன உரைக்கு `dialect` விருப்பம் புனைவு மொழியாக்க அமைப்பைக் கட்டுப்படுத்துகிறது: `'mandarin'` (இயல்புநிலை) பின்யின் பயன்படுத்துகிறது, `'cantonese'` [Jyutping](https://github.com/CanCLID/to-jyutping) பயன்படுத்துகிறது.
+சீன உரைக்கு `dialect` விருப்பம் புனைவு மொழியாக்க அமைப்பைக் கட்டுப்படுத்துகிறது: `'mandarin'` (இயல்புநிலை) பின்யின் பயன்படுத்துகிறது, `'cantonese'` [Jyutping](https://github.com/CanCLID/to-jyutping) பயன்படுத்துகிறது. மற்ற எழுத்துகள் `dialect` ஐ புறக்கணிக்கின்றன.
 
-**வெளி எழுத்துகளுக்கு** `UnsupportedRomanizationError` எறியப்படும்.
+இயந்திரம் இல்லாத எழுத்துகளுக்கு (உள்ளமைந்ததோ அல்லது உட்செலுத்தப்பட்டதோ) `UnsupportedRomanizationError` **எறியப்படும்**.
 
 ```ts
-await romanizer.romanizeLine('வணக்கம் உலகம்');
-// 'vanakkam ulagam'
+await romanizer.romanizeLine('你好世界');
+// 'nǐ hǎo shì jiè' (இயல்புநிலை: மாண்டரின்/பின்யின்)
 
 await romanizer.romanizeLine('你好', { dialect: 'cantonese' });
 // 'nei5 hou2' (Jyutping)
@@ -161,19 +204,19 @@ await romanizer.romanizeLine('مرحبا');
 
 ### `romanizer.romanizeLines(lines, options?)`
 
-பல வரிகளை இணையாக புனைவு மொழியாக்கம் செய்யும். கண்டறியப்பட்ட எழுத்து மற்றும் புனைவு மொழியாக்கம் செய்யப்பட்ட வரிகளை வழங்கும்.
+பல வரிகளை இணையாக புனைவு மொழியாக்கம் செய்யும். ஆதிக்க எழுத்தை **அனைத்து வரிகளிலும் ஒரேமுறை** கண்டறிந்து அதை ஒவ்வொரு வரிக்கும் நிலைநிறுத்துகிறது (**கலப்பு-எழுத்து அணிகள்** பகுதியைப் பார்க்கவும்). எழுத்து, புனைவு மொழியாக்கம் செய்யப்பட்ட வரிகள், மற்றும் ஒவ்வொரு வரிக்குமான `fallbacks` கொடிகளை வழங்கும் — இயந்திரம் தோல்வியடைந்து ஒரு வரி கடைசி முயற்சியாக யூனிவர்சலாக ஒலிபெயர்க்கப்பட்ட இடத்தில் `true`.
 
 ```ts
-const { script, lines } = await romanizer.romanizeLines([
+const { script, lines, fallbacks } = await romanizer.romanizeLines([
   'สวัสดี',
   'ชาวโลก',
 ]);
-// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+// { script: 'thai', lines: ['swasdi', 'chaolok'], fallbacks: [false, false] }
 ```
 
 ### `UnsupportedRomanizationError`
 
-வெளி API தேவைப்படும் எழுத்தை புனைவு மொழியாக்கம் செய்ய முயற்சிக்கும் போது எறியப்படும். நிரலாக்க செயலாக்கத்திற்கு `script` பண்பு உள்ளது.
+இயந்திரம் இல்லாத — உள்ளமைந்ததோ அல்லது `options.engines` வழியாக உட்செலுத்தப்பட்டதோ — ஒரு எழுத்தை புனைவு மொழியாக்கம் செய்ய முயற்சிக்கும் போது எறியப்படும். நிரலாக்க செயலாக்கத்திற்கு `script` பண்பு உள்ளது.
 
 ```ts
 try {
@@ -200,12 +243,12 @@ try {
 | சிரிலிலிக் | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | தேவநாகரி | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
 | குஜராத்தி | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
-| குர்முகி | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| குர்முகி | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namasate` |
 | தெலுங்கு | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| கன்னடம் | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
+| கன்னடம் | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೇ` → `namaste` |
 | ஒடியா | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | தமிழ் | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
-| தாய் | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| தாய் | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `swasdi` |
 
 ### வெளி API தேவை
 
@@ -217,9 +260,20 @@ try {
 | ஹிப்ரு | Google Translate `dt=rm` |
 | மற்றவை | Google Translate `dt=rm` |
 
-இவற்றை கண்டறிய மற்றும் உங்கள் விருப்பமான API க்கு மாற்ற `requiresExternalRomanization()` பயன்படுத்துங்கள்.
+இவற்றை கண்டறிந்து உங்கள் விருப்பமான API க்கு கிளைபிரிய `requiresExternalRomanization()` பயன்படுத்துங்கள் — அல்லது API ஐ ஒரே முறை ஒரு **இயந்திர அடாப்டராக** செருகி `romanizeLines` ஒவ்வொரு எழுத்தையும் கையாள விடுங்கள்.
 
 ## எழுத்து-குறிப்பு குறிப்புகள்
+
+### கலப்பு-எழுத்து அணிகள்
+
+`romanizeLines` முழு அணியின் **ஆதிக்க** எழுத்தை ஒவ்வொரு வரிக்கும் நிலைநிறுத்துகிறது. இது வேண்டுமென்றே செய்யப்படுகிறது: ஒரு ஜப்பானிய பாடலில் உள்ள கான்ஜி-மட்டும் வரி தனியாக இருக்கும்போது சீனத்திலிருந்து வேறுபடுத்த முடியாதது (கான்ஜியும் ஹான்சியும் ஒரே யூனிகோட் தொகுதியைப் பகிர்ந்துகொள்கின்றன), எனவே முழு-அணி சூழல் மட்டுமே அதை சரியான இயந்திரத்திற்கு வழிநடத்துகிறது. தெரிந்துகொள்ள வேண்டிய விளைவுகள்:
+
+- அணியில் எங்கேனும் உள்ள எந்த கானாவும் முழு அணியையும் `japanese` க்கு நிலைநிறுத்துகிறது — கானா தீர்மானகரமான சான்று.
+- அணிக்குள் ஒரு *வேறுபட்ட* லத்தீன்-அல்லாத எழுத்தின் வரி இன்னும் நிலைநிறுத்தப்பட்ட இயந்திரத்திற்கே அளிக்கப்படுகிறது.
+- தூய-லத்தீன் வரிகள் (ஒரு CJK பாடலுக்குள் ஒரு ஆங்கில கோரஸ்) நிலைநிறுத்தப்பட்ட இயந்திரத்திற்கு அளிக்கப்படுவதற்குப் பதிலாக **அப்படியே வழங்கப்படும்**.
+- ஒரு இயந்திரம் தோல்வியடைந்து ஒரு வரி யூனிவர்சல் ஒலிபெயர்ப்பாக தரமிறங்கியபோது ஒவ்வொரு வரிக்குமான `fallbacks` கொடிகள் தெரிவிக்கின்றன.
+
+உண்மையான ஒவ்வொரு-வரி இயந்திர வழிநடத்தல் உங்களுக்குத் தேவைப்பட்டால், `romanizeLine` ஐ ஒரு சுழற்சியில் அழைக்கவும் — அது ஒவ்வொரு வரிக்கும் தனித்தனியாக கண்டறிகிறது.
 
 ### சிரிலிலிக் கண்டறிதல்
 

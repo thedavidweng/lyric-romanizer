@@ -16,10 +16,14 @@ Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke).
 
 - **Zero API calls** — all romanization runs locally
 - **Auto script detection** — pass in text, get back the detected script
-- **12+ scripts** — Japanese, Chinese, Korean, Cyrillic, 7 Indic scripts, Tamil, Thai
+- **12+ scripts** — Japanese, Chinese, Korean, Cyrillic, 6 Indic scripts, Tamil, Thai
 - **Cantonese support** — Jyutping alongside default Mandarin Pinyin
-- **Lightweight detector subpath** — import only script detection without pulling in romanization engines
+- **Lightweight detector subpath** — import only script detection (and external-script classification) without pulling in romanization engines
+- **Lazy engines** — every engine loads on first use; importing the main entry costs nothing until you romanize
+- **Pluggable engines** — override any built-in engine, or plug your own adapter for externally-romanized scripts
+- **Observable fallbacks** — per-line flags tell you when an engine failed and a line was transliterated as a last resort
 - **Ukrainian-aware Cyrillic** — auto-detects Ukrainian-specific characters and applies the correct transliteration preset
+- **Runs in plain Node ESM** — no bundler required
 
 ## Installation
 
@@ -43,13 +47,15 @@ import { createRomanizer, detectScript } from 'lyric-romanizer';
 const romanizer = createRomanizer();
 
 // Auto-detect script and romanize
-const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
-// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'こんにちは'] }
+const result = await romanizer.romanizeLines(['你好世界', '很高兴认识你']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'hěn gāo xìng rèn shi nǐ'], fallbacks: [false, false] }
 
 // Romanize a single line
 const line = await romanizer.romanizeLine('안녕하세요');
 // 'annyeonghaseyo'
 ```
+
+> **Detection granularity** — `romanizeLines` detects the dominant script **once across all lines** and pins it for every line (deliberate: kanji-only lines inside a Japanese song must reach the Japanese engine, and any kana in the array pins `japanese`). Calling `romanizeLine` in a loop instead detects **per line** and may route each line to a different engine. Pure-Latin lines under a pinned script are returned unchanged. See [Mixed-script arrays](#mixed-script-arrays).
 
 ## API
 
@@ -66,7 +72,12 @@ import {
 } from 'lyric-romanizer';
 
 // Detector-only subpath — lightweight, no romanization dependencies
-import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
+import {
+  detectScript,
+  isLatinScript,
+  requiresExternalRomanization,
+  NON_LATIN_SCRIPT_RE,
+} from 'lyric-romanizer/detector';
 ```
 
 ### Types
@@ -77,21 +88,33 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'other';
+  | 'latin' | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
+// `dialect` is only honored for 'chinese'; every other script ignores it.
 type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
-type RomanizeResult = { script: ScriptType; lines: string[] };
-type RomanizerOptions = { japaneseDictPath?: string };
+
+// `fallbacks` is aligned with `lines`: true where the engine failed and the
+// line was universally transliterated as a last resort.
+type RomanizeResult = { script: ScriptType; lines: string[]; fallbacks?: boolean[] };
+
+// An engine adapter: romanizes one line of its script. Throwing (or
+// rejecting) triggers the universal transliteration fallback.
+type RomanizeEngine = (line: string, context: { dialect: 'mandarin' | 'cantonese' }) => string | Promise<string>;
+
+type RomanizerOptions = {
+  japaneseDictPath?: string;
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
+};
 ```
 
 ### `createRomanizer(options?)`
 
-Factory that returns a `Romanizer` instance. The Kuroshiro engine (Japanese) is lazily initialized on first use and cached.
+Factory that returns a `Romanizer` instance. Every engine is lazily loaded on first use and cached — a failed load retries on the next call.
 
 ```ts
 const romanizer = createRomanizer();
@@ -101,6 +124,26 @@ const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
 ```
+
+#### Engine adapters
+
+`options.engines` overrides the built-in engine for a script — or plugs an engine into a script that has none built in (`arabic`, `hebrew`, `malayalam`, `bengali`, `other`), so `romanizeLines` can handle every script through one interface. By default the library performs **zero network I/O**; plugging a remote adapter is an explicit caller decision.
+
+```ts
+const romanizer = createRomanizer({
+  engines: {
+    // Bring your own external romanization for scripts without a local engine.
+    arabic: async (line) => myTransliterationApi(line),
+    // Or replace a built-in engine (e.g. with a fake in tests).
+    korean: (line) => myKoreanRomanizer(line),
+  },
+});
+
+await romanizer.romanizeLines(['مرحبا']);
+// { script: 'arabic', lines: [...], fallbacks: [false] } — no longer throws
+```
+
+Scripts without an engine — built-in or injected — still throw `UnsupportedRomanizationError`.
 
 ### `detectScript(lines)`
 
@@ -126,7 +169,7 @@ isLatinScript(['♪♪♪']);         // false (no letters)
 
 ### `requiresExternalRomanization(script)`
 
-Returns `true` for scripts that cannot be romanized locally and require an external API.
+Returns `true` for scripts that have no built-in engine and require an external API. Importable from the lightweight `lyric-romanizer/detector` subpath, so answering "should I branch to an external service?" costs zero engine payload.
 
 ```ts
 requiresExternalRomanization('chinese');   // false
@@ -136,11 +179,11 @@ requiresExternalRomanization('malayalam'); // true
 
 ### `romanizer.romanizeLine(line, options?)`
 
-Romanizes a single line. If `script` is omitted, it is auto-detected via `detectScript`. Returns the original line unchanged for Latin text or non-letter content.
+Romanizes a single line. If `script` is omitted, it is auto-detected **per line** via `detectScript` — looping over `romanizeLine` may route each line to a different engine, unlike `romanizeLines`, which pins one script for the whole array. Returns the original line unchanged for Latin text or non-letter content.
 
-For Chinese text, the `dialect` option controls the romanization system: `'mandarin'` (default) uses Pinyin, `'cantonese'` uses [Jyutping](https://github.com/CanCLID/to-jyutping).
+For Chinese text, the `dialect` option controls the romanization system: `'mandarin'` (default) uses Pinyin, `'cantonese'` uses [Jyutping](https://github.com/CanCLID/to-jyutping). Other scripts ignore `dialect`.
 
-**Throws** `UnsupportedRomanizationError` for external scripts.
+**Throws** `UnsupportedRomanizationError` for scripts without an engine (built-in or injected).
 
 ```ts
 await romanizer.romanizeLine('你好世界');
@@ -161,19 +204,19 @@ await romanizer.romanizeLine('مرحبا');
 
 ### `romanizer.romanizeLines(lines, options?)`
 
-Romanizes multiple lines in parallel. Returns the detected script and romanized lines.
+Romanizes multiple lines in parallel. Detects the dominant script **once across all lines** and pins it for every line (see [Mixed-script arrays](#mixed-script-arrays)). Returns the script, the romanized lines, and per-line `fallbacks` flags — `true` where the engine failed and the line was universally transliterated as a last resort.
 
 ```ts
-const { script, lines } = await romanizer.romanizeLines([
+const { script, lines, fallbacks } = await romanizer.romanizeLines([
   'สวัสดี',
   'ชาวโลก',
 ]);
-// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+// { script: 'thai', lines: ['swasdi', 'chaolok'], fallbacks: [false, false] }
 ```
 
 ### `UnsupportedRomanizationError`
 
-Thrown when attempting to romanize a script that requires an external API. Has a `script` property for programmatic handling.
+Thrown when attempting to romanize a script that has no engine — built in or injected via `options.engines`. Has a `script` property for programmatic handling.
 
 ```ts
 try {
@@ -200,12 +243,12 @@ try {
 | Cyrillic | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | Devanagari | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
 | Gujarati | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
-| Gurmukhi | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| Gurmukhi | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namasate` |
 | Telugu | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| Kannada | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
+| Kannada | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೇ` → `namaste` |
 | Odia | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | Tamil | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
-| Thai | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| Thai | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `swasdi` |
 
 ### External (requires API)
 
@@ -217,9 +260,20 @@ try {
 | Hebrew | Google Translate `dt=rm` |
 | Other | Google Translate `dt=rm` |
 
-Use `requiresExternalRomanization()` to detect these and branch to your preferred API.
+Use `requiresExternalRomanization()` to detect these and branch to your preferred API — or plug the API in once as an [engine adapter](#engine-adapters) and let `romanizeLines` handle every script.
 
 ## Script-Specific Notes
+
+### Mixed-script arrays
+
+`romanizeLines` pins the **dominant** script of the whole array to every line. This is deliberate: a kanji-only line inside a Japanese song is indistinguishable from Chinese on its own (kanji and hanzi share the same Unicode block), so only whole-array context routes it to the right engine. Consequences worth knowing:
+
+- Any kana anywhere in the array pins the whole array to `japanese` — kana is definitive proof.
+- A line of a *different* non-Latin script inside the array is still fed to the pinned engine.
+- Pure-Latin lines (an English chorus inside a CJK song) are **returned unchanged** instead of being fed to the pinned engine.
+- Per-line `fallbacks` flags report when an engine failed and a line degraded to universal transliteration.
+
+If you need true per-line engine routing, call `romanizeLine` in a loop — it detects per line.
 
 ### Cyrillic Detection
 

@@ -1,6 +1,6 @@
 {
   "name": "lyric-romanizer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Script detection and local romanization engine for lyrics — supports Japanese, Chinese, Korean, Cyrillic, Indic scripts, Tamil, Thai, and more",
   "license": "MIT",
   "type": "module",
@@ -21,17 +21,23 @@
       "default": "./dist/detector.js"
     }
   },
+  "sideEffects": false,
   "files": [
     "dist",
+    "src",
     "docs",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
     "prepack": "npm run build",
+    "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "smoke": "node scripts/smoke.mjs",
+    "verify": "pnpm run typecheck && pnpm run build && pnpm test && pnpm run smoke"
   },
   "dependencies": {
     "@dehoist/romanize-thai": "^1.0.0",
@@ -40,14 +46,14 @@
     "@sglkc/kuroshiro": "^1.0.1",
     "@sglkc/kuroshiro-analyzer-kuromoji": "^1.0.1",
     "cyrillic-to-translit-js": "^3.2.1",
-    "pinyin-pro": "^3.28.0",
+    "pinyin-pro": "^3.28.2",
     "tamil-romanizer": "^1.0.2",
     "to-jyutping": "^3.1.1",
     "transliteration": "^2.6.1"
   },
   "devDependencies": {
-    "typescript": "^5.7.3",
-    "vitest": "^4.0.18"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   },
   "keywords": [
     "romanization",

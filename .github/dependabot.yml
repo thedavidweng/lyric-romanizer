@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Keep every composed romanization engine (and dev tooling) on its latest
+  # release. Minor and patch updates arrive grouped; majors arrive as
+  # individual PRs so behavior changes are reviewed against CI's output tests.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    groups:
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

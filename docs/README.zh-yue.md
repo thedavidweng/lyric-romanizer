@@ -16,10 +16,14 @@
 
 - **零 API 呼叫** — 所有羅馬化都係本地運行
 - **自動腳本檢測** — 傳入文本，自動識別所用腳本
-- **12+ 種腳本** — 日語、中文、韓語、西里爾文字、7 種印度系文字、泰米爾語、泰語
+- **12+ 種腳本** — 日語、中文、韓語、西里爾文字、6 種印度系文字、泰米爾語、泰語
 - **粵語支援** — 除咗預設普通話拼音之外，仲支援粵語粵拼（Jyutping）
-- **輕量子路徑匯入** — 可以只匯入腳本檢測功能，唔使引入羅馬化引擎
+- **輕量子路徑匯入** — 可以只匯入腳本檢測（同外部腳本分類），唔使引入羅馬化引擎
+- **惰性引擎** — 每個引擎都喺首次使用時先至載入；喺你真正開始羅馬化之前，匯入主入口係完全零開銷
+- **可插拔引擎** — 可以覆蓋任何內置引擎，或者為需要外部羅馬化嘅腳本插入你自己嘅適配器
+- **可觀察嘅回退** — 逐行標誌會話你知，邊一行喺引擎失敗後、作為最後手段回退到通用轉寫
 - **烏克蘭語感知西里爾文字** — 自動檢測烏克蘭語特有字符並應用正確嘅轉寫預設
+- **喺純 Node ESM 下運行** — 唔使任何打包工具
 
 ## 安裝
 
@@ -43,13 +47,15 @@ import { createRomanizer, detectScript } from 'lyric-romanizer';
 const romanizer = createRomanizer();
 
 // 自動檢測腳本同羅馬化
-const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
-// { script: 'chinese', lines: ['nei5 hou2 sai3 gaai3', 'こんにちは'] }
+const result = await romanizer.romanizeLines(['你好世界', '很高兴认识你']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'hěn gāo xìng rèn shi nǐ'], fallbacks: [false, false] }
 
 // 羅馬化單行
 const line = await romanizer.romanizeLine('안녕하세요');
 // 'annyeonghaseyo'
 ```
+
+> **檢測粒度** — `romanizeLines` 會**一次過喺所有行之間**檢測主導腳本，然後將呢種腳本固定用落每一行（呢個係刻意設計嘅：日文歌入面淨係得漢字嘅行都必須去到日語引擎，而數組入面只要有任何假名就會固定為 `japanese`）。相反，喺循環入面調用 `romanizeLine` 就係**逐行**檢測，可能將每一行路由到唔同嘅引擎。喺已固定腳本下嘅純拉丁行會原樣返回。詳見**混合腳本數組**。
 
 ## API
 
@@ -66,7 +72,12 @@ import {
 } from 'lyric-romanizer';
 
 // 純檢測子路徑 — 輕量，無羅馬化依賴
-import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
+import {
+  detectScript,
+  isLatinScript,
+  requiresExternalRomanization,
+  NON_LATIN_SCRIPT_RE,
+} from 'lyric-romanizer/detector';
 ```
 
 ### 類型
@@ -77,21 +88,33 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'other';
+  | 'latin' | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
+// 只有 'chinese' 先會理會 `dialect`；其他所有腳本都會忽略佢。
 type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
-type RomanizeResult = { script: ScriptType; lines: string[] };
-type RomanizerOptions = { japaneseDictPath?: string };
+
+// `fallbacks` 同 `lines` 一一對應：喺引擎失敗、該行作為
+// 最後手段回退到通用轉寫嘅位置為 true。
+type RomanizeResult = { script: ScriptType; lines: string[]; fallbacks?: boolean[] };
+
+// 引擎適配器：羅馬化佢所屬腳本嘅一行。拋出異常（或
+// Promise reject）都會觸發通用轉寫回退。
+type RomanizeEngine = (line: string, context: { dialect: 'mandarin' | 'cantonese' }) => string | Promise<string>;
+
+type RomanizerOptions = {
+  japaneseDictPath?: string;
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
+};
 ```
 
 ### `createRomanizer(options?)`
 
-工廠函數，返回 `Romanizer` 實例。Kuroshiro 引擎（日語）喺首次使用時惰性初始化同緩存。
+工廠函數，返回 `Romanizer` 實例。每個引擎都喺首次使用時惰性載入同緩存——如果載入失敗，下次調用會重試。
 
 ```ts
 const romanizer = createRomanizer();
@@ -101,6 +124,26 @@ const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
 ```
+
+#### 引擎適配器
+
+`options.engines` 可以覆蓋某個腳本嘅內置引擎——又或者為本身冇內置引擎嘅腳本（`arabic`、`hebrew`、`malayalam`、`bengali`、`other`）插入一個引擎，噉樣 `romanizeLines` 就可以透過同一個接口處理每一種腳本。默認情況下，本庫**零網絡 I/O**；插入遠程適配器係調用方明確作出嘅決定。
+
+```ts
+const romanizer = createRomanizer({
+  engines: {
+    // 為冇本地引擎嘅腳本自備外部羅馬化。
+    arabic: async (line) => myTransliterationApi(line),
+    // 或者替換內置引擎（例如喺測試中用假引擎）。
+    korean: (line) => myKoreanRomanizer(line),
+  },
+});
+
+await romanizer.romanizeLines(['مرحبا']);
+// { script: 'arabic', lines: [...], fallbacks: [false] } — 唔會再拋出異常
+```
+
+冇引擎——無論係內置定係注入——嘅腳本仍然會拋出 `UnsupportedRomanizationError`。
 
 ### `detectScript(lines)`
 
@@ -126,7 +169,7 @@ isLatinScript(['♪♪♪']);         // false（無字母）
 
 ### `requiresExternalRomanization(script)`
 
-對於無法喺本地羅馬化、需要外部 API 嘅腳本返回 `true`。
+對於冇內置引擎、需要外部 API 嘅腳本返回 `true`。可以從輕量嘅 `lyric-romanizer/detector` 子路徑匯入，所以要回答「使唔使分流到外部服務？」呢個問題，完全唔使加載任何羅馬化引擎。
 
 ```ts
 requiresExternalRomanization('chinese');   // false
@@ -136,11 +179,11 @@ requiresExternalRomanization('malayalam'); // true
 
 ### `romanizer.romanizeLine(line, options?)`
 
-羅馬化單行文本。省略 `script` 時通過 `detectScript` 自動檢測。拉丁文本或無字母內容原樣返回。
+羅馬化單行文本。省略 `script` 時，會通過 `detectScript` **逐行**自動檢測——喺循環入面調用 `romanizeLine` 可能將每一行路由到唔同嘅引擎，唔同於 `romanizeLines`（佢會為成個數組固定一種腳本）。拉丁文本或無字母內容原樣返回。
 
-對於中文文本，`dialect` 選項控制羅馬化系統：`'mandarin'`（默認）使用拼音，`'cantonese'` 使用 [Jyutping](https://github.com/CanCLID/to-jyutping)。
+對於中文文本，`dialect` 選項控制羅馬化系統：`'mandarin'`（默認）使用拼音，`'cantonese'` 使用 [Jyutping](https://github.com/CanCLID/to-jyutping)。其他腳本會忽略 `dialect`。
 
-**外部腳本會拋出** `UnsupportedRomanizationError`。
+**對於冇引擎（內置或注入）嘅腳本會拋出** `UnsupportedRomanizationError`。
 
 ```ts
 await romanizer.romanizeLine('你好世界');
@@ -161,19 +204,19 @@ await romanizer.romanizeLine('مرحبا');
 
 ### `romanizer.romanizeLines(lines, options?)`
 
-並行羅馬化多行文本。返回檢測到嘅腳本同羅馬化後嘅行。
+並行羅馬化多行文本。會**一次過喺所有行之間**檢測主導腳本，然後將呢種腳本固定用落每一行（詳見**混合腳本數組**）。返回腳本、羅馬化後嘅行，以及逐行嘅 `fallbacks` 標誌——喺引擎失敗、該行作為最後手段回退到通用轉寫嘅位置為 `true`。
 
 ```ts
-const { script, lines } = await romanizer.romanizeLines([
+const { script, lines, fallbacks } = await romanizer.romanizeLines([
   'สวัสดี',
   'ชาวโลก',
 ]);
-// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+// { script: 'thai', lines: ['swasdi', 'chaolok'], fallbacks: [false, false] }
 ```
 
 ### `UnsupportedRomanizationError`
 
-當嘗試羅馬化需要外部 API 嘅腳本時拋出。具有 `script` 屬性，方便程序化處理。
+當嘗試羅馬化一種冇引擎——無論係內置定係透過 `options.engines` 注入——嘅腳本時拋出。具有 `script` 屬性，方便程序化處理。
 
 ```ts
 try {
@@ -200,12 +243,12 @@ try {
 | 西里爾文字 | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | 天城文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
 | 古吉拉特文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
-| 古木基文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| 古木基文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namasate` |
 | 泰盧固文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| 卡納達文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
+| 卡納達文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೇ` → `namaste` |
 | 奧里亞文 | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | 泰米爾語 | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
-| 泰語 | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| 泰語 | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `swasdi` |
 
 ### 需要外部 API
 
@@ -217,9 +260,20 @@ try {
 | 希伯來語 | Google Translate `dt=rm` |
 | 其他 | Google Translate `dt=rm` |
 
-用 `requiresExternalRomanization()` 檢測呢啲腳本同分流到你偏好嘅 API。
+用 `requiresExternalRomanization()` 檢測呢啲腳本，然後分流到你偏好嘅 API——又或者將個 API 作為**引擎適配器**插入一次，等 `romanizeLines` 處理每一種腳本。
 
 ## 腳本專項說明
+
+### 混合腳本數組
+
+`romanizeLines` 會將成個數組嘅**主導**腳本固定用落每一行。呢個係刻意設計嘅：日文歌入面淨係得漢字嘅一行，單獨睇同中文係無法區分嘅（日文漢字同中文漢字共用同一個 Unicode 區塊），所以淨係靠成個數組嘅上下文先至可以將佢路由到正確嘅引擎。有幾點值得留意：
+
+- 數組入面任何位置只要有假名，就會將成個數組固定為 `japanese`——假名係確定性嘅證據。
+- 數組入面一行*唔同*嘅非拉丁腳本，仍然會交俾已固定嘅引擎處理。
+- 純拉丁行（例如 CJK 歌曲入面嘅一段英文副歌）會**原樣返回**，而唔會交俾已固定嘅引擎。
+- 逐行嘅 `fallbacks` 標誌會報告邊一行喺引擎失敗後、降級成通用轉寫。
+
+如果你需要真正逐行嘅引擎路由，可以喺循環入面調用 `romanizeLine`——佢係逐行檢測嘅。
 
 ### 西里爾文字檢測
 
@@ -227,7 +281,7 @@ try {
 
 ### 粵語支援
 
-中文默認使用普通話（拼音）。傳入 `dialect: 'cantonese'` 可使用粵語粵拼（[Jyutping](https://jyutping.org/)）。
+中文默認使用普通話（拼音）。喺 `RomanizeOptions` 入面傳入 `dialect: 'cantonese'`，就可以改為將中文文本羅馬化為粵拼（[Jyutping](https://github.com/CanCLID/to-jyutping)）。
 
 ```ts
 const { lines } = await romanizer.romanizeLines(['你好世界', '食飯'], {

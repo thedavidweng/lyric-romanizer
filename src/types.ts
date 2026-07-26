@@ -18,18 +18,45 @@ export type ScriptType =
   | 'latin'
   | 'other';
 
+export type RomanizeEngineContext = {
+  /** Chinese romanization system. Every other built-in engine ignores it. */
+  dialect: 'mandarin' | 'cantonese';
+};
+
+/**
+ * An engine adapter: romanizes one line of its script. May be synchronous or
+ * asynchronous. Throwing (or rejecting) triggers the universal transliteration
+ * fallback, reported per line via `RomanizeResult.fallbacks`.
+ */
+export type RomanizeEngine = (line: string, context: RomanizeEngineContext) => string | Promise<string>;
+
 export type RomanizerOptions = {
   japaneseDictPath?: string;
+  /**
+   * Override the built-in engine for a script, or plug an engine for a script
+   * that has none built in (arabic, hebrew, malayalam, bengali, other).
+   * Scripts without an engine — built-in or injected — throw
+   * `UnsupportedRomanizationError`. Entries with an `undefined` value are
+   * ignored, as is a `latin` entry: latin text is always returned unchanged.
+   */
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
 };
 
 export type RomanizeOptions = {
   script?: ScriptType;
+  /** Only honored for `chinese`; every other script ignores it. */
   dialect?: 'mandarin' | 'cantonese';
 };
 
 export type RomanizeResult = {
   script: ScriptType;
   lines: string[];
+  /**
+   * Aligned with `lines`: `true` where the script engine failed and the line
+   * was universally transliterated as a last resort. Always populated by this
+   * library; optional so existing code constructing results keeps compiling.
+   */
+  fallbacks?: boolean[];
 };
 
 export interface Romanizer {
