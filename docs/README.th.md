@@ -16,10 +16,14 @@
 
 - **ไม่มีการเรียก API** — การทับศัพท์ทั้งหมดทำงานภายในระบบ
 - **ตรวจจับสคริปต์อัตโนมัติ** — ส่งข้อความเข้ามา ระบบจะตรวจจับสคริปต์ที่ใช้
-- **12+ สคริปต์** — ญี่ปุ่น จีน เกาหลี ซิริลลิก 7 สคริปต์อินดิก ทมิฬ ไทย
+- **12+ สคริปต์** — ญี่ปุ่น จีน เกาหลี ซิริลลิก 6 สคริปต์อินดิก ทมิฬ ไทย
 - **รองรับกวางตุ้ง** — จ้วตึ้ง (Jyutping) นอกจากพินอินแมนดารินเริ่มต้น
-- **น้ำหนักเบาสำหรับการตรวจจับ** — นำเข้าเฉพาะการตรวจจับสคริปต์โดยไม่ต้องนำเข้าเอนจินทับศัพท์
+- **น้ำหนักเบาสำหรับการตรวจจับ** — นำเข้าเฉพาะการตรวจจับสคริปต์ (และการจำแนกสคริปต์ภายนอก) โดยไม่ต้องนำเข้าเอนจินทับศัพท์
+- **เอนจินแบบ lazy** — เอนจินทุกตัวจะโหลดเมื่อใช้งานครั้งแรก การนำเข้ารายการหลักไม่มีต้นทุนใดๆ จนกว่าคุณจะเริ่มทับศัพท์
+- **เอนจินแบบเสียบต่อได้** — แทนที่เอนจินในตัวใดก็ได้ หรือเสียบอะแดปเตอร์ของคุณเองสำหรับสคริปต์ที่ทับศัพท์จากภายนอก
+- **fallback ที่สังเกตได้** — แฟล็กรายบรรทัดจะบอกคุณเมื่อเอนจินล้มเหลวและบรรทัดถูกทับศัพท์เป็นทางเลือกสุดท้าย
 - **ตรวจจับซิริลลิกภาษายูเครน** — ตรวจจับอักขระเฉพาะภาษายูเครนและใช้พรีเซ็ตการทับศัพท์ที่ถูกต้อง
+- **ทำงานบน Node ESM ล้วนๆ** — ไม่ต้องใช้ bundler
 
 ## การติดตั้ง
 
@@ -43,13 +47,15 @@ import { createRomanizer, detectScript } from 'lyric-romanizer';
 const romanizer = createRomanizer();
 
 // ตรวจจับสคริปต์และทับศัพท์อัตโนมัติ
-const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
-// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'こんにちは'] }
+const result = await romanizer.romanizeLines(['你好世界', '很高兴认识你']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'hěn gāo xìng rèn shi nǐ'], fallbacks: [false, false] }
 
 // ทับศัพท์บรรทัดเดียว
 const line = await romanizer.romanizeLine('안녕하세요');
 // 'annyeonghaseyo'
 ```
+
+> **ความละเอียดของการตรวจจับ** — `romanizeLines` จะตรวจจับสคริปต์หลัก **เพียงครั้งเดียวจากทุกบรรทัด** และตรึงไว้กับทุกบรรทัด (โดยเจตนา: บรรทัดที่มีแต่คันจิภายในเพลงญี่ปุ่นต้องไปถึงเอนจินญี่ปุ่น และกานาใดๆ ในอาร์เรย์จะตรึงเป็น `japanese`) การเรียก `romanizeLine` แบบวนซ้ำจะตรวจจับ **รายบรรทัด** แทน และอาจกำหนดเส้นทางแต่ละบรรทัดไปยังเอนจินคนละตัว บรรทัดที่เป็นละตินล้วนภายใต้สคริปต์ที่ตรึงไว้จะถูกคืนค่าตามเดิม ดู **อาร์เรย์ที่ผสมหลายสคริปต์**
 
 ## API
 
@@ -66,7 +72,12 @@ import {
 } from 'lyric-romanizer';
 
 // เส้นทางย่อยสำหรับการตรวจจับเท่านั้น — น้ำหนักเบา ไม่มี dependency ทับศัพท์
-import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
+import {
+  detectScript,
+  isLatinScript,
+  requiresExternalRomanization,
+  NON_LATIN_SCRIPT_RE,
+} from 'lyric-romanizer/detector';
 ```
 
 ### ประเภท
@@ -77,21 +88,33 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'other';
+  | 'latin' | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
+// `dialect` มีผลเฉพาะกับ 'chinese' เท่านั้น สคริปต์อื่นๆ ทั้งหมดจะไม่สนใจค่านี้
 type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
-type RomanizeResult = { script: ScriptType; lines: string[] };
-type RomanizerOptions = { japaneseDictPath?: string };
+
+// `fallbacks` เรียงตรงกับ `lines`: เป็น true ตรงบรรทัดที่เอนจินล้มเหลวและ
+// บรรทัดถูกทับศัพท์แบบสากลเป็นทางเลือกสุดท้าย
+type RomanizeResult = { script: ScriptType; lines: string[]; fallbacks?: boolean[] };
+
+// อะแดปเตอร์เอนจิน: ทับศัพท์หนึ่งบรรทัดของสคริปต์นั้น การโยน (หรือ
+// reject) จะกระตุ้น fallback การทับศัพท์แบบสากล
+type RomanizeEngine = (line: string, context: { dialect: 'mandarin' | 'cantonese' }) => string | Promise<string>;
+
+type RomanizerOptions = {
+  japaneseDictPath?: string;
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
+};
 ```
 
 ### `createRomanizer(options?)`
 
-ฟากทอรีที่คืนอินสแตนซ์ `Romanizer` เอนจิน Kuroshiro (ญี่ปุ่น) จะถูกเริ่มต้นแบบ lazy เมื่อใช้งานครั้งแรกและถูกแคช
+ฟากทอรีที่คืนอินสแตนซ์ `Romanizer` เอนจินทุกตัวจะถูกโหลดแบบ lazy เมื่อใช้งานครั้งแรกและถูกแคช — หากการโหลดล้มเหลวจะลองใหม่ในการเรียกครั้งถัดไป
 
 ```ts
 const romanizer = createRomanizer();
@@ -101,6 +124,26 @@ const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
 ```
+
+#### อะแดปเตอร์เอนจิน
+
+`options.engines` จะแทนที่เอนจินในตัวสำหรับสคริปต์หนึ่งๆ — หรือเสียบเอนจินให้กับสคริปต์ที่ไม่มีเอนจินในตัว (`arabic`, `hebrew`, `malayalam`, `bengali`, `other`) เพื่อให้ `romanizeLines` จัดการทุกสคริปต์ผ่านอินเทอร์เฟซเดียวได้ โดยค่าเริ่มต้น ไลบรารีจะ**ไม่มี network I/O เลย** การเสียบอะแดปเตอร์ระยะไกลเป็นการตัดสินใจของผู้เรียกอย่างชัดเจน
+
+```ts
+const romanizer = createRomanizer({
+  engines: {
+    // นำการทับศัพท์ภายนอกของคุณเองมาใช้กับสคริปต์ที่ไม่มีเอนจินในระบบ
+    arabic: async (line) => myTransliterationApi(line),
+    // หรือแทนที่เอนจินในตัว (เช่น ด้วยตัวปลอมในการทดสอบ)
+    korean: (line) => myKoreanRomanizer(line),
+  },
+});
+
+await romanizer.romanizeLines(['مرحبا']);
+// { script: 'arabic', lines: [...], fallbacks: [false] } — ไม่โยนข้อผิดพลาดอีกต่อไป
+```
+
+สคริปต์ที่ไม่มีเอนจิน — ไม่ว่าจะเป็นเอนจินในตัวหรือที่เสียบเข้ามา — จะยังคงโยน `UnsupportedRomanizationError`
 
 ### `detectScript(lines)`
 
@@ -126,7 +169,7 @@ isLatinScript(['♪♪♪']);         // false (ไม่มีตัวอั�
 
 ### `requiresExternalRomanization(script)`
 
-คืนค่า `true` สำหรับสคริปต์ที่ไม่สามารถทับศัพท์ภายในระบบได้และต้องการ API ภายนอก
+คืนค่า `true` สำหรับสคริปต์ที่ไม่มีเอนจินในตัวและต้องการ API ภายนอก สามารถนำเข้าได้จากเส้นทางย่อย `lyric-romanizer/detector` ที่มีน้ำหนักเบา ดังนั้นการตอบคำถามว่า "ควรแยกไปใช้บริการภายนอกหรือไม่" จึงมีต้นทุน payload ของเอนจินเป็นศูนย์
 
 ```ts
 requiresExternalRomanization('chinese');   // false
@@ -136,15 +179,15 @@ requiresExternalRomanization('malayalam'); // true
 
 ### `romanizer.romanizeLine(line, options?)`
 
-ทับศัพท์บรรทัดเดียว ถ้าไม่ระบุ `script` จะตรวจจับอัตโนมัติผ่าน `detectScript` ข้อความละตินหรือเนื้อหาที่ไม่มีตัวอักษรจะถูกคืนค่าตามเดิม
+ทับศัพท์บรรทัดเดียว ถ้าไม่ระบุ `script` จะตรวจจับอัตโนมัติ **รายบรรทัด** ผ่าน `detectScript` — การวนซ้ำเรียก `romanizeLine` อาจกำหนดเส้นทางแต่ละบรรทัดไปยังเอนจินคนละตัว ต่างจาก `romanizeLines` ที่ตรึงสคริปต์เดียวให้กับทั้งอาร์เรย์ ข้อความละตินหรือเนื้อหาที่ไม่มีตัวอักษรจะถูกคืนค่าตามเดิม
 
-สำหรับข้อความภาษาจีน ตัวเลือก `dialect` ควบคุมระบบการทับศัพท์: `'mandarin'` (ค่าเริ่มต้น) ใช้พินอิน, `'cantonese'` ใช้ [Jyutping](https://github.com/CanCLID/to-jyutping)
+สำหรับข้อความภาษาจีน ตัวเลือก `dialect` ควบคุมระบบการทับศัพท์: `'mandarin'` (ค่าเริ่มต้น) ใช้พินอิน, `'cantonese'` ใช้ [Jyutping](https://github.com/CanCLID/to-jyutping) สคริปต์อื่นๆ จะไม่สนใจ `dialect`
 
-**โยน** `UnsupportedRomanizationError` สำหรับสคริปต์ภายนอก
+**โยน** `UnsupportedRomanizationError` สำหรับสคริปต์ที่ไม่มีเอนจิน (ทั้งในตัวหรือที่เสียบเข้ามา)
 
 ```ts
-await romanizer.romanizeLine('สวัสดีชาวโลก');
-// 'sawatdi chaolok'
+await romanizer.romanizeLine('你好世界');
+// 'nǐ hǎo shì jiè' (ค่าเริ่มต้น: แมนดาริน/พินอิน)
 
 await romanizer.romanizeLine('你好', { dialect: 'cantonese' });
 // 'nei5 hou2' (Jyutping)
@@ -161,19 +204,19 @@ await romanizer.romanizeLine('مرحبا');
 
 ### `romanizer.romanizeLines(lines, options?)`
 
-ทับศัพท์หลายบรรทัดแบบขนาน คืนค่าสคริปต์ที่ตรวจพบและบรรทัดที่ทับศัพท์แล้ว
+ทับศัพท์หลายบรรทัดแบบขนาน ตรวจจับสคริปต์หลัก **เพียงครั้งเดียวจากทุกบรรทัด** และตรึงไว้กับทุกบรรทัด (ดู **อาร์เรย์ที่ผสมหลายสคริปต์**) คืนค่าสคริปต์ บรรทัดที่ทับศัพท์แล้ว และแฟล็ก `fallbacks` รายบรรทัด — เป็น `true` ตรงบรรทัดที่เอนจินล้มเหลวและบรรทัดถูกทับศัพท์แบบสากลเป็นทางเลือกสุดท้าย
 
 ```ts
-const { script, lines } = await romanizer.romanizeLines([
+const { script, lines, fallbacks } = await romanizer.romanizeLines([
   'สวัสดี',
   'ชาวโลก',
 ]);
-// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+// { script: 'thai', lines: ['swasdi', 'chaolok'], fallbacks: [false, false] }
 ```
 
 ### `UnsupportedRomanizationError`
 
-ถูกโยนเมื่อพยายามทับศัพท์สคริปต์ที่ต้องการ API ภายนอก มีคุณสมบัติ `script` สำหรับการจัดการเชิงโปรแกรม
+ถูกโยนเมื่อพยายามทับศัพท์สคริปต์ที่ไม่มีเอนจิน — ไม่ว่าจะเป็นเอนจินในตัวหรือที่เสียบเข้ามาผ่าน `options.engines` มีคุณสมบัติ `script` สำหรับการจัดการเชิงโปรแกรม
 
 ```ts
 try {
@@ -200,12 +243,12 @@ try {
 | ซิริลลิก | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | เทวนาครี | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
 | คุชราต | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
-| กุรมุขี | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| กุรมุขี | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namasate` |
 | เตลูกู | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| กันนาดา | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
+| กันนาดา | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೇ` → `namaste` |
 | โอเดีย | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | ทมิฬ | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
-| ไทย | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| ไทย | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `swasdi` |
 
 ### ต้องการ API ภายนอก
 
@@ -217,9 +260,20 @@ try {
 | ฮีบรู | Google Translate `dt=rm` |
 | อื่นๆ | Google Translate `dt=rm` |
 
-ใช้ `requiresExternalRomanization()` เพื่อตรวจจับและเปลี่ยนไปใช้ API ที่คุณต้องการ
+ใช้ `requiresExternalRomanization()` เพื่อตรวจจับสคริปต์เหล่านี้และแยกไปใช้ API ที่คุณต้องการ — หรือเสียบ API เข้าเพียงครั้งเดียวในรูปแบบ **อะแดปเตอร์เอนจิน** แล้วให้ `romanizeLines` จัดการทุกสคริปต์
 
 ## หมายเหตุเฉพาะสคริปต์
+
+### อาร์เรย์ที่ผสมหลายสคริปต์
+
+`romanizeLines` จะตรึงสคริปต์ **หลัก** ของทั้งอาร์เรย์ให้กับทุกบรรทัด นี่เป็นไปโดยเจตนา: บรรทัดที่มีแต่คันจิภายในเพลงญี่ปุ่นนั้นแยกไม่ออกจากภาษาจีนหากดูโดยลำพัง (คันจิและฮั่นจื้อใช้บล็อก Unicode เดียวกัน) ดังนั้นมีเพียงบริบทของทั้งอาร์เรย์เท่านั้นที่จะกำหนดเส้นทางไปยังเอนจินที่ถูกต้องได้ ผลที่ตามมาที่ควรรู้:
+
+- กานาที่ปรากฏที่ใดก็ตามในอาร์เรย์จะตรึงทั้งอาร์เรย์เป็น `japanese` — กานาเป็นหลักฐานที่แน่นอน
+- บรรทัดที่เป็นสคริปต์ที่ไม่ใช่ละติน *ต่างชนิด* ภายในอาร์เรย์จะยังคงถูกป้อนให้กับเอนจินที่ตรึงไว้
+- บรรทัดที่เป็นละตินล้วน (เช่น ท่อนคอรัสภาษาอังกฤษในเพลง CJK) จะ**ถูกคืนค่าตามเดิม** แทนที่จะถูกป้อนให้กับเอนจินที่ตรึงไว้
+- แฟล็ก `fallbacks` รายบรรทัดจะรายงานเมื่อเอนจินล้มเหลวและบรรทัดถูกลดระดับไปใช้การทับศัพท์แบบสากล
+
+หากคุณต้องการกำหนดเส้นทางเอนจินแบบรายบรรทัดจริงๆ ให้เรียก `romanizeLine` แบบวนซ้ำ — มันจะตรวจจับแบบรายบรรทัด
 
 ### การตรวจจับซิริลลิก
 

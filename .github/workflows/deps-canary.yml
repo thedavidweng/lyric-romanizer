@@ -1,0 +1,42 @@
+name: Latest-deps canary
+
+# Weekly early warning: install the absolute latest release of every
+# dependency (including majors Dependabot hasn't PR'd yet), then run the full
+# verification. A red run here means an upstream engine changed something
+# before it reaches a Dependabot PR.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: Verify against latest everything
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@008330803749db0355799c700092d9a85fd074e9 # v6.0.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "lts/*"
+
+      - name: Update everything to latest
+        run: pnpm update --latest
+
+      - name: Report resolved versions
+        run: pnpm list --depth 0
+
+      # Same gate as CI, including the Node ESM smoke test — engine output
+      # changes and interop breakage both surface here.
+      - name: Verify
+        run: pnpm run verify

@@ -16,10 +16,14 @@
 
 - **Без вызовов API** — вся романизация выполняется локально
 - **Автоопределение скрипта** — передайте текст, получите определённый скрипт
-- **12+ скриптов** — японский, китайский, корейский, кириллица, 7 индийских скриптов, тамильский, тайский
+- **12+ скриптов** — японский, китайский, корейский, кириллица, 6 индийских скриптов, тамильский, тайский
 - **Поддержка кантонского** — ютпин (Jyutping) наряду с мандаринским пиньинем
-- **Лёгкий подпуть детектора** — импортируйте только определение скрипта без движков романизации
+- **Лёгкий подпуть детектора** — импортируйте только определение скрипта (и классификацию внешних скриптов) без движков романизации
+- **Ленивые движки** — каждый движок загружается при первом использовании; импорт основной точки входа ничего не стоит, пока вы не запустите романизацию
+- **Подключаемые движки** — переопределите любой встроенный движок или подключите собственный адаптер для скриптов с внешней романизацией
+- **Наблюдаемые откаты** — флаги для каждой строки сообщают, когда движок дал сбой и строка была транслитерирована в качестве крайней меры
 - **Украиноориентированная кириллица** — автоопределение украинских символов и применение правильного пресета транслитерации
+- **Работает в чистом Node ESM** — сборщик не требуется
 
 ## Установка
 
@@ -43,13 +47,15 @@ import { createRomanizer, detectScript } from 'lyric-romanizer';
 const romanizer = createRomanizer();
 
 // Автоопределение скрипта и романизация
-const result = await romanizer.romanizeLines(['你好世界', 'こんにちは']);
-// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'こんにちは'] }
+const result = await romanizer.romanizeLines(['你好世界', '很高兴认识你']);
+// { script: 'chinese', lines: ['nǐ hǎo shì jiè', 'hěn gāo xìng rèn shi nǐ'], fallbacks: [false, false] }
 
 // Романизация одной строки
 const line = await romanizer.romanizeLine('안녕하세요');
 // 'annyeonghaseyo'
 ```
+
+> **Гранулярность определения** — `romanizeLines` определяет доминирующий скрипт **один раз по всем строкам** и закрепляет его за каждой строкой (это сделано намеренно: строки только с кандзи внутри японской песни должны попасть в японский движок, а любая кана в массиве закрепляет `japanese`). Вызов `romanizeLine` в цикле, наоборот, определяет скрипт **для каждой строки** и может направлять каждую строку в разные движки. Строки на чистой латинице при закреплённом скрипте возвращаются без изменений. См. **Массивы со смешанными скриптами**.
 
 ## API
 
@@ -66,7 +72,12 @@ import {
 } from 'lyric-romanizer';
 
 // Подпуть только детектора — лёгкий, без зависимостей романизации
-import { detectScript, isLatinScript, NON_LATIN_SCRIPT_RE } from 'lyric-romanizer/detector';
+import {
+  detectScript,
+  isLatinScript,
+  requiresExternalRomanization,
+  NON_LATIN_SCRIPT_RE,
+} from 'lyric-romanizer/detector';
 ```
 
 ### Типы
@@ -77,21 +88,33 @@ type ScriptType =
   | 'devanagari' | 'gujarati' | 'gurmukhi' | 'telugu'
   | 'kannada' | 'odia' | 'tamil' | 'malayalam'
   | 'bengali' | 'arabic' | 'hebrew' | 'thai'
-  | 'other';
+  | 'latin' | 'other';
 
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
 }
 
+// `dialect` учитывается только для 'chinese'; все остальные скрипты его игнорируют.
 type RomanizeOptions = { script?: ScriptType; dialect?: 'mandarin' | 'cantonese' };
-type RomanizeResult = { script: ScriptType; lines: string[] };
-type RomanizerOptions = { japaneseDictPath?: string };
+
+// `fallbacks` выровнен с `lines`: true там, где движок дал сбой и строка
+// была транслитерирована универсальным способом в качестве крайней меры.
+type RomanizeResult = { script: ScriptType; lines: string[]; fallbacks?: boolean[] };
+
+// Адаптер движка: романизирует одну строку своего скрипта. Выброс исключения
+// (или отклонение промиса) запускает откат к универсальной транслитерации.
+type RomanizeEngine = (line: string, context: { dialect: 'mandarin' | 'cantonese' }) => string | Promise<string>;
+
+type RomanizerOptions = {
+  japaneseDictPath?: string;
+  engines?: Partial<Record<ScriptType, RomanizeEngine>>;
+};
 ```
 
 ### `createRomanizer(options?)`
 
-Фабрика, возвращающая экземпляр `Romanizer`. Движок Kuroshiro (японский) лениво инициализируется при первом использовании и кэшируется.
+Фабрика, возвращающая экземпляр `Romanizer`. Каждый движок лениво загружается при первом использовании и кэшируется — при неудачной загрузке повторная попытка выполняется при следующем вызове.
 
 ```ts
 const romanizer = createRomanizer();
@@ -101,6 +124,26 @@ const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
 ```
+
+#### Адаптеры движков
+
+`options.engines` переопределяет встроенный движок для скрипта — или подключает движок к скрипту, для которого встроенного нет (`arabic`, `hebrew`, `malayalam`, `bengali`, `other`), чтобы `romanizeLines` мог обрабатывать любой скрипт через единый интерфейс. По умолчанию библиотека не выполняет **никакого сетевого ввода-вывода**; подключение удалённого адаптера — это явное решение вызывающей стороны.
+
+```ts
+const romanizer = createRomanizer({
+  engines: {
+    // Подключите свою внешнюю романизацию для скриптов без локального движка.
+    arabic: async (line) => myTransliterationApi(line),
+    // Или замените встроенный движок (например, подделкой в тестах).
+    korean: (line) => myKoreanRomanizer(line),
+  },
+});
+
+await romanizer.romanizeLines(['مرحبا']);
+// { script: 'arabic', lines: [...], fallbacks: [false] } — больше не выбрасывает исключение
+```
+
+Скрипты без движка — встроенного или внедрённого — по-прежнему выбрасывают `UnsupportedRomanizationError`.
 
 ### `detectScript(lines)`
 
@@ -126,7 +169,7 @@ isLatinScript(['♪♪♪']);         // false (нет букв)
 
 ### `requiresExternalRomanization(script)`
 
-Возвращает `true` для скриптов, которые нельзя романизовать локально и требуют внешнего API.
+Возвращает `true` для скриптов, у которых нет встроенного движка и которые требуют внешнего API. Импортируется из лёгкого подпути `lyric-romanizer/detector`, поэтому ответ на вопрос «стоит ли переключаться на внешний сервис?» не требует загрузки движков.
 
 ```ts
 requiresExternalRomanization('chinese');   // false
@@ -136,18 +179,21 @@ requiresExternalRomanization('malayalam'); // true
 
 ### `romanizer.romanizeLine(line, options?)`
 
-Романизирует одну строку. Если `script` опущен, он автоопределяется через `detectScript`. Латинский текст или контент без букв возвращается без изменений.
+Романизирует одну строку. Если `script` опущен, он автоопределяется **для каждой строки** через `detectScript` — цикл по `romanizeLine` может направлять каждую строку в разные движки, в отличие от `romanizeLines`, который закрепляет один скрипт за всем массивом. Латинский текст или контент без букв возвращается без изменений.
 
-Для китайского текста опция `dialect` управляет системой романизации: `'mandarin'` (по умолчанию) использует пиньинь, `'cantonese'` использует [Jyutping](https://github.com/CanCLID/to-jyutping).
+Для китайского текста опция `dialect` управляет системой романизации: `'mandarin'` (по умолчанию) использует пиньинь, `'cantonese'` использует [Jyutping](https://github.com/CanCLID/to-jyutping). Другие скрипты игнорируют `dialect`.
 
-**Выбрасывает** `UnsupportedRomanizationError` для внешних скриптов.
+**Выбрасывает** `UnsupportedRomanizationError` для скриптов без движка (встроенного или внедрённого).
 
 ```ts
-await romanizer.romanizeLine('Привет мир');
-// 'Privet mir'
+await romanizer.romanizeLine('你好世界');
+// 'nǐ hǎo shì jiè' (по умолчанию: мандарин/пиньинь)
 
 await romanizer.romanizeLine('你好', { dialect: 'cantonese' });
 // 'nei5 hou2' (Jyutping)
+
+await romanizer.romanizeLine('Привет мир');
+// 'Privet mir'
 
 await romanizer.romanizeLine('Hello world');
 // 'Hello world' (без изменений)
@@ -158,19 +204,19 @@ await romanizer.romanizeLine('مرحبا');
 
 ### `romanizer.romanizeLines(lines, options?)`
 
-Параллельно романизирует несколько строк. Возвращает определённый скрипт и романизированные строки.
+Параллельно романизирует несколько строк. Определяет доминирующий скрипт **один раз по всем строкам** и закрепляет его за каждой строкой (см. **Массивы со смешанными скриптами**). Возвращает скрипт, романизированные строки и флаги `fallbacks` для каждой строки — `true` там, где движок дал сбой и строка была транслитерирована универсальным способом в качестве крайней меры.
 
 ```ts
-const { script, lines } = await romanizer.romanizeLines([
+const { script, lines, fallbacks } = await romanizer.romanizeLines([
   'สวัสดี',
   'ชาวโลก',
 ]);
-// { script: 'thai', lines: ['sawatdi', 'chaolok'] }
+// { script: 'thai', lines: ['swasdi', 'chaolok'], fallbacks: [false, false] }
 ```
 
 ### `UnsupportedRomanizationError`
 
-Выбрасывается при попытке романизовать скрипт, требующий внешнего API. Имеет свойство `script` для программной обработки.
+Выбрасывается при попытке романизовать скрипт, у которого нет движка — встроенного или внедрённого через `options.engines`. Имеет свойство `script` для программной обработки.
 
 ```ts
 try {
@@ -197,12 +243,12 @@ try {
 | Кириллица | [cyrillic-to-translit-js](https://github.com/greybax/CyrillicToTranslitJS) | `Привет` → `Privet` |
 | Деванагари | [sanscript](https://github.com/indic-transliteration/sanscript) | `नमस्ते` → `namaste` |
 | Гуджарати | [sanscript](https://github.com/indic-transliteration/sanscript) | `નમસ્તે` → `namaste` |
-| Гурмукхи | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namaste` |
+| Гурмукхи | [sanscript](https://github.com/indic-transliteration/sanscript) | `ਨਮਸਤੇ` → `namasate` |
 | Телугу | [sanscript](https://github.com/indic-transliteration/sanscript) | `నమస్తే` → `namaste` |
-| Каннада | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೆ` → `namaste` |
+| Каннада | [sanscript](https://github.com/indic-transliteration/sanscript) | `ನಮಸ್ತೇ` → `namaste` |
 | Одия | [sanscript](https://github.com/indic-transliteration/sanscript) | `ନମସ୍ତେ` → `namaste` |
 | Тамильский | [tamil-romanizer](https://github.com/haroldalan/tamil-romanizer) | `வணக்கம்` → `vanakkam` |
-| Тайский | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `sawatdi` |
+| Тайский | [@dehoist/romanize-thai](https://github.com/Dehoist/Open-Source) | `สวัสดี` → `swasdi` |
 
 ### Требуют внешний API
 
@@ -214,9 +260,20 @@ try {
 | Иврит | Google Translate `dt=rm` |
 | Другие | Google Translate `dt=rm` |
 
-Используйте `requiresExternalRomanization()` для определения и переключения на предпочитаемый API.
+Используйте `requiresExternalRomanization()` для определения этих скриптов и переключения на предпочитаемый API — или подключите API один раз в виде **адаптера движка**, и `romanizeLines` обработает любой скрипт.
 
 ## Примечания по скриптам
+
+### Массивы со смешанными скриптами
+
+`romanizeLines` закрепляет **доминирующий** скрипт всего массива за каждой строкой. Это сделано намеренно: строка только с кандзи внутри японской песни сама по себе неотличима от китайской (кандзи и ханьцзы используют один и тот же блок Unicode), поэтому только контекст всего массива направляет её в правильный движок. Полезно знать о последствиях:
+
+- Любая кана в любом месте массива закрепляет за всем массивом `japanese` — кана является неопровержимым доказательством.
+- Строка на *другом* нелатинском скрипте внутри массива всё равно передаётся закреплённому движку.
+- Строки на чистой латинице (английский припев внутри CJK-песни) **возвращаются без изменений**, а не передаются закреплённому движку.
+- Флаги `fallbacks` для каждой строки сообщают, когда движок дал сбой и строка откатилась к универсальной транслитерации.
+
+Если вам нужна настоящая маршрутизация движков для каждой строки, вызывайте `romanizeLine` в цикле — он определяет скрипт для каждой строки.
 
 ### Определение кириллицы
 
