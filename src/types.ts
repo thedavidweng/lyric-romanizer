@@ -62,6 +62,14 @@ export type RomanizeResult = {
 export interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  /**
+   * Eagerly load (and, for Japanese, initialize) the built-in engine(s) for
+   * the given script(s). Omit the argument to preload every built-in local
+   * engine still installed on this instance. Overridden / injected engines
+   * are skipped. Latin and external scripts are no-ops. Unlike romanize, a
+   * failed load rejects rather than falling back.
+   */
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 export class UnsupportedRomanizationError extends Error {

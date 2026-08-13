@@ -97,6 +97,7 @@ export function selectCyrillicPreset(line: string): 'ru' | 'uk' {
 class DefaultRomanizer implements Romanizer {
   private readonly japaneseDictPath: string;
   private readonly engines: Partial<Record<ScriptType, RomanizeEngine>>;
+  private readonly defaultEngines: Record<EngineScript, RomanizeEngine>;
 
   private readonly loadKuroshiro = lazy(async (): Promise<Kuroshiro> => {
     const [kuroshiroModule, analyzerModule] = await Promise.all([
@@ -116,14 +117,20 @@ class DefaultRomanizer implements Romanizer {
     // Null-prototype: an out-of-contract script name from an untyped caller
     // (e.g. 'toString') must miss the lookup rather than resolve to an
     // inherited Object.prototype method and be invoked as an engine.
+    this.defaultEngines = this.buildDefaultEngines();
     const engines = Object.assign(
       Object.create(null) as Partial<Record<ScriptType, RomanizeEngine>>,
-      this.buildDefaultEngines()
+      this.defaultEngines
     );
     for (const [script, engine] of Object.entries(options?.engines ?? {})) {
       if (engine) engines[script as ScriptType] = engine;
     }
     this.engines = engines;
+  }
+
+  async warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void> {
+    const requested = scripts === undefined ? (Object.keys(this.defaultEngines) as EngineScript[]) : [scripts].flat();
+    await Promise.all(requested.map((script) => this.preload(script)));
   }
 
   async romanizeLine(line: string, options?: RomanizeOptions): Promise<string> {
@@ -146,6 +153,44 @@ class DefaultRomanizer implements Romanizer {
       lines: resolved.map((r) => r.text),
       fallbacks: resolved.map((r) => r.fallback),
     };
+  }
+
+  private async preload(script: ScriptType): Promise<void> {
+    // Injected / overridden engines own their own lifecycle. Loading the
+    // built-in behind them (kuromoji in particular) would defeat the point
+    // of the injection seam.
+    if (this.engines[script] !== this.defaultEngines[script as EngineScript]) return;
+
+    switch (script) {
+      case 'japanese':
+        await this.loadKuroshiro();
+        return;
+      case 'chinese':
+        await Promise.all([loadPinyin(), loadJyutping()]);
+        return;
+      case 'korean':
+        await loadKorean();
+        return;
+      case 'cyrillic':
+        await loadCyrillicTranslit();
+        return;
+      case 'devanagari':
+      case 'gujarati':
+      case 'gurmukhi':
+      case 'telugu':
+      case 'kannada':
+      case 'odia':
+        await loadSanscript();
+        return;
+      case 'tamil':
+        await loadTamil();
+        return;
+      case 'thai':
+        await loadThai();
+        return;
+      default:
+        return;
+    }
   }
 
   private async resolveLine(

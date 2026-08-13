@@ -20,6 +20,8 @@
 - **粵語支援** — 除咗預設普通話拼音之外，仲支援粵語粵拼（Jyutping）
 - **輕量子路徑匯入** — 可以只匯入腳本檢測（同外部腳本分類），唔使引入羅馬化引擎
 - **惰性引擎** — 每個引擎都喺首次使用時先至載入；喺你真正開始羅馬化之前，匯入主入口係完全零開銷
+- **預熱** — 可以喺第一行之前預先載入某個文字系統嘅引擎（同埋日語詞典）
+- **Kuromoji 詞典輔助** — `lyric-romanizer/dict` 定位跟住包裝嚟嘅詞典，桌面應用可以自己托管，唔使行預設 CDN
 - **可插拔引擎** — 可以覆蓋任何內置引擎，或者為需要外部羅馬化嘅腳本插入你自己嘅適配器
 - **可觀察嘅回退** — 逐行標誌會話你知，邊一行喺引擎失敗後、作為最後手段回退到通用轉寫
 - **烏克蘭語感知西里爾文字** — 自動檢測烏克蘭語特有字符並應用正確嘅轉寫預設
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// 詞典輔助 — 淨係 Node / 構建期。定位 kuromoji 詞典，
+// 等打包插件可以將佢拷進應用，而唔使去拉 CDN。
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### 類型
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // 只有 'chinese' 先會理會 `dialect`；其他所有腳本都會忽略佢。
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// 空閒時預載引擎（日語仲會解析詞典）
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **打包器 / Vite worker。** 惰性 `import()` 只有喺打包器可以 code-split 嗰陣先至惰性。Vite 預設 `worker.format` 係 `'iife'`，會將所有引擎內聯入 worker。設 `worker: { format: 'es' }`，中文歌先至唔會去解析日語同粵語引擎。唔好由 worker 或者瀏覽器包入面匯入 `lyric-romanizer/dict` — 佢淨係用喺 Node。
+
+#### `romanizer.warmup(scripts?)`
+
+載入每個文字系統嘅內置引擎，但唔羅馬化任何一行。省略 `scripts` 會預載呢個實例上仍然安裝嘅全部內置本地引擎。被覆蓋或者注入嘅引擎會被跳過。拉丁文同外部文字系統係空操作。載入失敗會 **reject** — 同 `romanizeLines` 唔同，warmup 唔會回退到通用轉寫。
+
+#### `lyric-romanizer/dict`
+
+Node / 構建期輔助，畀要把 kuromoji 詞典打入應用嘅消費者用（Tauri/Electron、靜態 `public/dict/`）。庫嘅預設 `japaneseDictPath` 係 jsDelivr CDN；呢個入口等預設 CDN 唔使成為唯一選擇。
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### 引擎適配器

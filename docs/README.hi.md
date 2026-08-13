@@ -20,6 +20,8 @@
 - **कैंटोनीज़ समर्थन** — डिफ़ॉल्ट मंदारिन पिनयिन के साथ-साथ कैंटोनीज़ ज्युटपिंग (Jyutping)
 - **हल्का पहचान उपपथ** — रोमनाइज़ेशन इंजन शामिल किए बिना केवल लिपि पहचान (और बाहरी-लिपि वर्गीकरण) आयात करें
 - **आलसी इंजन** — प्रत्येक इंजन पहले उपयोग पर लोड होता है; जब तक आप रोमनाइज़ न करें, मुख्य प्रविष्टि आयात करने की कोई लागत नहीं
+- **वार्मअप** — पहली पंक्ति से पहले किसी लिपि का इंजन (और जापानी शब्दकोश) पहले से लोड किया जा सकता है
+- **Kuromoji शब्दकोश सहायक** — `lyric-romanizer/dict` शिप किया गया शब्दकोश ढूँढता है, ताकि डेस्कटॉप ऐप उसे डिफ़ॉल्ट CDN के बजाय स्थानीय रूप से होस्ट कर सके
 - **प्लग-योग्य इंजन** — किसी भी अंतर्निर्मित इंजन को ओवरराइड करें, या बाहरी रूप से रोमनाइज़ की जाने वाली लिपियों के लिए अपना स्वयं का एडाप्टर प्लग करें
 - **अवलोकनीय फ़ॉलबैक** — प्रति-पंक्ति फ़्लैग बताते हैं कि कब कोई इंजन विफल हुआ और किसी पंक्ति को अंतिम उपाय के रूप में लिप्यंतरित किया गया
 - **यूक्रेनी-सचेत सिरिलिक** — यूक्रेनी विशिष्ट वर्णों की स्वचालित पहचान और सही लिप्यंतरण प्रीसेट लागू करें
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// शब्दकोश सहायक — केवल Node / बिल्ड-समय। kuromoji शब्दकोश ढूँढता है
+// ताकि बंडलर प्लगिन उसे CDN के बजाय ऐप में कॉपी कर सके।
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### प्रकार
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect` केवल 'chinese' के लिए लागू होता है; बाकी हर लिपि इसे अनदेखा करती है।
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// खाली समय में इंजन पहले से लोड करें (जापानी के लिए शब्दकोश भी पार्स होता है)
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **बंडलर / Vite worker.** आलसी `import()` तभी आलसी रहता है जब बंडलर कोड-स्प्लिट कर सके। Vite का डिफ़ॉल्ट `worker.format` `'iife'` है, जो हर इंजन को worker में इनलाइन कर देता है। `worker: { format: 'es' }` सेट करें ताकि एक चीनी गाना जापानी और कैंटोनीज़ इंजन पार्स न करे। `lyric-romanizer/dict` को worker या ब्राउज़र बंडल से आयात न करें — यह केवल Node के लिए है।
+
+#### `romanizer.warmup(scripts?)`
+
+प्रत्येक लिपि का अंतर्निर्मित इंजन लोड करता है, बिना किसी पंक्ति को रोमनाइज़ किए। `scripts` छोड़ने पर इस इंस्टेंस पर बचे सभी अंतर्निर्मित स्थानीय इंजन पहले से लोड होते हैं। ओवरराइड या इंजेक्ट किए गए इंजन छोड़ दिए जाते हैं। लैटिन और बाहरी लिपियाँ no-op हैं। लोड विफल होने पर **reject** होता है। `romanizeLines` के विपरीत, warmup सार्वभौमिक लिप्यंतरण पर नहीं गिरता।
+
+#### `lyric-romanizer/dict`
+
+उन उपभोक्ताओं के लिए Node / बिल्ड-समय सहायक जो kuromoji शब्दकोश को ऐप में रखते हैं (Tauri/Electron, स्थिर `public/dict/`)। लाइब्रेरी का डिफ़ॉल्ट `japaneseDictPath` jsDelivr CDN है; यह प्रविष्टि उसे एकमात्र विकल्प नहीं रहने देती।
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### इंजन एडाप्टर

@@ -35,6 +35,14 @@ const { createRomanizer, detectScript, isLatinScript, requiresExternalRomanizati
   '../dist/index.js'
 );
 
+// warmup is on the instance; a no-op script must not throw, and a real
+// local engine must be loadable through it before romanizeLines runs.
+const warmed = createRomanizer();
+await warmed.warmup('latin');
+await warmed.warmup(['korean']);
+const warmedKorean = await warmed.romanizeLines(['안녕'], { script: 'korean' });
+check('warmup:korean', warmedKorean.lines[0] === 'annyeong', `got ${JSON.stringify(warmedKorean.lines)}`);
+
 const romanizer = createRomanizer();
 
 for (const [script, lines, dialect, expected] of EXPECTED) {
@@ -100,10 +108,30 @@ check(
   `dist/detector.js must import nothing (found ${detectorImports.length}: ${detectorImports.join(', ')})`
 );
 
+// The ./dict subpath is Node/build-time only: it locates kuromoji's dictionary
+// so a desktop consumer can vendor it. It must not pull any engine.
+const dict = await import('../dist/dict.js');
+check(
+  'dict:package',
+  dict.KUROMOJI_PACKAGE === '@sglkc/kuromoji',
+  `got ${JSON.stringify(dict.KUROMOJI_PACKAGE)}`
+);
+check('dict:files', Array.isArray(dict.KUROMOJI_DICT_FILES) && dict.KUROMOJI_DICT_FILES.includes('base.dat.gz'), 'missing base.dat.gz');
+const dictDir = dict.resolveKuromojiDictDir();
+check('dict:resolves', typeof dictDir === 'string' && dictDir.includes('kuromoji'), `got ${JSON.stringify(dictDir)}`);
+
+const dictSource = readFileSync(new URL('../dist/dict.js', import.meta.url), 'utf8');
+const dictFrom = [...dictSource.matchAll(/from ['"]([^'"]+)['"]/g)].map((match) => match[1]);
+check(
+  'dict:node-only',
+  dictFrom.length > 0 && dictFrom.every((specifier) => specifier.startsWith('node:')),
+  `dist/dict.js may only import node: built-ins (found ${dictFrom.join(', ') || 'none'})`
+);
+
 if (failures.length > 0) {
   console.error(`smoke FAILED (${failures.length}):`);
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
 
-console.log(`smoke ok — ${EXPECTED.length} engines, fallback path, both entry points`);
+console.log(`smoke ok — ${EXPECTED.length} engines, fallback path, warmup, three entry points`);

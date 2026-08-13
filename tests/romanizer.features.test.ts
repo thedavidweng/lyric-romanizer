@@ -190,6 +190,51 @@ describe('cyrillic preset selection', () => {
   });
 });
 
+describe('warmup', () => {
+  it('initializes the Japanese engine without converting a line', async () => {
+    const romanizer = createRomanizer({ japaneseDictPath: 'mock://dict' });
+    await romanizer.warmup('japanese');
+
+    expect(hoisted.analyzerCtor).toHaveBeenCalledWith({ dictPath: 'mock://dict' });
+    expect(hoisted.mockInit).toHaveBeenCalledTimes(1);
+    expect(hoisted.mockConvert).not.toHaveBeenCalled();
+  });
+
+  it('skips a built-in loader when that engine was overridden', async () => {
+    const romanizer = createRomanizer({
+      japaneseDictPath: 'mock://dict',
+      engines: { japanese: async (line) => line },
+    });
+    await romanizer.warmup('japanese');
+
+    expect(hoisted.mockInit).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op for scripts with no built-in engine', async () => {
+    const romanizer = createRomanizer();
+    await expect(romanizer.warmup('arabic')).resolves.toBeUndefined();
+    await expect(romanizer.warmup('latin')).resolves.toBeUndefined();
+  });
+
+  it('rejects when a requested built-in engine fails to load', async () => {
+    hoisted.mockInit.mockRejectedValueOnce(new Error('dict fetch failed'));
+    const romanizer = createRomanizer({ japaneseDictPath: 'mock://dict' });
+    await expect(romanizer.warmup('japanese')).rejects.toThrow('dict fetch failed');
+  });
+
+  it('accepts several scripts in one call', async () => {
+    const romanizer = createRomanizer({ japaneseDictPath: 'mock://dict' });
+    await romanizer.warmup(['japanese', 'arabic']);
+    expect(hoisted.mockInit).toHaveBeenCalledTimes(1);
+  });
+
+  it('with no argument preloads every remaining built-in engine', async () => {
+    const romanizer = createRomanizer({ japaneseDictPath: 'mock://dict' });
+    await romanizer.warmup();
+    expect(hoisted.mockInit).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('latin guard under a pinned script', () => {
   it('returns pure-latin lines unchanged instead of feeding them to the pinned engine', async () => {
     const romanizer = createRomanizer();

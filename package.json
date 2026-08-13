@@ -1,6 +1,6 @@
 {
   "name": "lyric-romanizer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Script detection and local romanization engine for lyrics — supports Japanese, Chinese, Korean, Cyrillic, Indic scripts, Tamil, Thai, and more",
   "license": "MIT",
   "type": "module",
@@ -19,13 +19,17 @@
       "types": "./dist/detector.d.ts",
       "import": "./dist/detector.js",
       "default": "./dist/detector.js"
+    },
+    "./dict": {
+      "types": "./dist/dict.d.ts",
+      "import": "./dist/dict.js",
+      "default": "./dist/dict.js"
     }
   },
   "sideEffects": false,
   "files": [
     "dist",
     "src",
-    "docs",
     "README.md",
     "CHANGELOG.md"
   ],
@@ -52,6 +56,7 @@
     "transliteration": "^2.6.1"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },

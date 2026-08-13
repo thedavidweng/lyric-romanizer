@@ -20,6 +20,8 @@
 - **காண்டோனீஸ் ஆதரவு** — இயல்புநிலை மாண்டரின் பின்யின் கூடுதலாக காண்டோனீஸ் ஜூட்பிங் (Jyutping)
 - **இலகுரக கண்டறிதல் துணைப்பாதை** — புனைவு மொழியாக்க இயந்திரங்களை இழுக்காமல் எழுத்து கண்டறிதல் (மற்றும் வெளி-எழுத்து வகைப்பாடு) மட்டும் இறக்குமதி செய்யுங்கள்
 - **சோம்பேறி இயந்திரங்கள்** — ஒவ்வொரு இயந்திரமும் முதல் பயன்பாட்டில் ஏற்றப்படுகிறது; நீங்கள் புனைவு மொழியாக்கம் செய்யும் வரை முக்கிய நுழைவை இறக்குமதி செய்வது எதுவும் செலவாகாது
+- **முன்னேற்றம்** — முதல் வரிக்கு முன் ஒரு எழுத்து இயந்திரத்தையும் (மற்றும் ஜப்பானிய அகராதியையும்) முன்கூட்டியே ஏற்றலாம்
+- **Kuromoji அகராதி உதவி** — `lyric-romanizer/dict` அனுப்பப்பட்ட அகராதியைக் கண்டுபிடிக்கும், எனவே desktop செயலி இயல்புநிலை CDN-க்குப் பதிலாக உள்ளூரில் வழங்கலாம்
 - **செருகக்கூடிய இயந்திரங்கள்** — எந்த உள்ளமைந்த இயந்திரத்தையும் மேலெழுதுங்கள், அல்லது வெளியில் புனைவு மொழியாக்கம் செய்யப்படும் எழுத்துகளுக்கு உங்கள் சொந்த அடாப்டரை செருகுங்கள்
 - **கவனிக்கத்தக்க fallbacks** — ஒரு இயந்திரம் தோல்வியடைந்து ஒரு வரி கடைசி முயற்சியாக ஒலிபெயர்க்கப்பட்டபோது, ஒவ்வொரு வரிக்குமான கொடிகள் அதை உங்களுக்குத் தெரிவிக்கின்றன
 - **உக்ரேனிய-விழிப்புணர்வு சிரிலிலிக்** — உக்ரேனிய சிறப்பு எழுத்துகளை தானாக கண்டறிதல் மற்றும் சரியான ஒலிபெயர்ப்பு முன்அமைப்பை பயன்படுத்துதல்
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// அகராதி உதவி — Node / build-time மட்டும். kuromoji அகராதியைக் கண்டுபிடித்து
+// bundler plugin CDN-க்குப் பதிலாக செயலியில் நகலெடுக்க உதவும்.
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### வகைகள்
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect` என்பது 'chinese' க்கு மட்டுமே செல்லுபடியாகும்; மற்ற ஒவ்வொரு எழுத்தும் அதை புறக்கணிக்கிறது.
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// ஒய்வு நேரத்தில் இயந்திரத்தை முன்கூட்டியே ஏற்றவும் (ஜப்பானியத்திற்கு அகராதியும் பாகுபடுத்தப்படும்)
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **Bundler / Vite worker.** சோம்பேறி `import()` bundler code-split செய்ய முடியும்போது மட்டுமே சோம்பேறியாக இருக்கும். Vite இயல்புநிலை `worker.format` `'iife'` — எல்லா இயந்திரங்களையும் worker-ல் இன்லைன் செய்கிறது. `worker: { format: 'es' }` அமைக்கவும், அப்போது ஒரு சீனப் பாடல் ஜப்பானிய/காண்டோனீஸ் இயந்திரங்களை பாகுபடுத்தாது. worker அல்லது உலாவி மூட்டையிலிருந்து `lyric-romanizer/dict`-ஐ இறக்குமதி செய்ய வேண்டாம் — இது Node மட்டும்.
+
+#### `romanizer.warmup(scripts?)`
+
+ஒரு வரியையும் புனைவு மொழியாக்கம் செய்யாமல் ஒவ்வொரு எழுத்தின் உள்ளமைந்த இயந்திரத்தையும் ஏற்றுகிறது. `scripts` விடப்பட்டால் இந்த instance-ல் மீதமுள்ள அனைத்து உள்ளமைந்த உள்ளூர் இயந்திரங்களும் முன்கூட்டியே ஏற்றப்படும். மேலெழுதப்பட்ட அல்லது செருகப்பட்ட இயந்திரங்கள் தவிர்க்கப்படும். இலத்தீன் மற்றும் வெளி எழுத்துகள் no-op. ஏற்றம் தோல்வியுற்றால் **reject**. `romanizeLines`-ஐப் போலல்லாமல், warmup பொது ஒலிபெயர்ப்புக்கு fallback ஆகாது.
+
+#### `lyric-romanizer/dict`
+
+kuromoji அகராதியை செயலியில் வைக்கும் நுகர்வோருக்கான Node / build-time உதவி (Tauri/Electron, நிலையான `public/dict/`). நூலகத்தின் இயல்புநிலை `japaneseDictPath` jsDelivr CDN; இந்த நுழைவு அதை ஒரே தேர்வாக இருக்க விடாது.
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### இயந்திர அடாப்டர்கள்

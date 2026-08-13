@@ -20,6 +20,8 @@
 - **รองรับกวางตุ้ง** — จ้วตึ้ง (Jyutping) นอกจากพินอินแมนดารินเริ่มต้น
 - **น้ำหนักเบาสำหรับการตรวจจับ** — นำเข้าเฉพาะการตรวจจับสคริปต์ (และการจำแนกสคริปต์ภายนอก) โดยไม่ต้องนำเข้าเอนจินทับศัพท์
 - **เอนจินแบบ lazy** — เอนจินทุกตัวจะโหลดเมื่อใช้งานครั้งแรก การนำเข้ารายการหลักไม่มีต้นทุนใดๆ จนกว่าคุณจะเริ่มทับศัพท์
+- **วอร์มอัพ** — โหลดเอนจินของสคริปต์ (และพจนานุกรมภาษาญี่ปุ่น) ล่วงหน้าก่อนบรรทัดแรกได้
+- **ตัวช่วยพจนานุกรม Kuromoji** — `lyric-romanizer/dict` หาพจนานุกรมที่มากับแพ็กเกจ ให้แอปเดสก์ท็อปโฮสต์เองแทน CDN เริ่มต้น
 - **เอนจินแบบเสียบต่อได้** — แทนที่เอนจินในตัวใดก็ได้ หรือเสียบอะแดปเตอร์ของคุณเองสำหรับสคริปต์ที่ทับศัพท์จากภายนอก
 - **fallback ที่สังเกตได้** — แฟล็กรายบรรทัดจะบอกคุณเมื่อเอนจินล้มเหลวและบรรทัดถูกทับศัพท์เป็นทางเลือกสุดท้าย
 - **ตรวจจับซิริลลิกภาษายูเครน** — ตรวจจับอักขระเฉพาะภาษายูเครนและใช้พรีเซ็ตการทับศัพท์ที่ถูกต้อง
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// ตัวช่วยพจนานุกรม — เฉพาะ Node / เวลาบิลด์ ค้นหาพจนานุกรม kuromoji
+// เพื่อให้ปลั๊กอิน bundler คัดลอกเข้าแอปแทนการดึงจาก CDN
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### ประเภท
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect` มีผลเฉพาะกับ 'chinese' เท่านั้น สคริปต์อื่นๆ ทั้งหมดจะไม่สนใจค่านี้
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// โหลดเอนจินล่วงหน้าตอนว่าง (ภาษาญี่ปุ่นจะพาร์สพจนานุกรมด้วย)
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **Bundler / Vite worker.** `import()` แบบ lazy จะยัง lazy อยู่ได้ก็ต่อเมื่อ bundler แยกชิ้นส่วนได้ Vite ค่าเริ่มต้น `worker.format` คือ `'iife'` ซึ่งจะอินไลน์เอนจินทั้งหมดเข้า worker ตั้ง `worker: { format: 'es' }` เพื่อไม่ให้เพลงจีนไปพาร์สเอนจินญี่ปุ่นและกวางตุ้ง อย่า import `lyric-romanizer/dict` จาก worker หรือเบราว์เซอร์บันเดิล — ใช้ได้เฉพาะ Node
+
+#### `romanizer.warmup(scripts?)`
+
+โหลดเอนจินในตัวของแต่ละสคริปต์โดยไม่ทับศัพท์บรรทัดใด ละ `scripts` จะโหลดเอนจินท้องถิ่นในตัวที่ยังอยู่บนอินสแตนซ์นี้ล่วงหน้าทั้งหมด เอนจินที่ถูกแทนที่หรือฉีดเข้ามาจะถูกข้าม ละตินและสคริปต์ภายนอกเป็น no-op การโหลดล้มเหลวจะ **reject** ไม่เหมือน `romanizeLines` warmup จะไม่ถอยไปทับศัพท์สากล
+
+#### `lyric-romanizer/dict`
+
+ตัวช่วย Node / เวลาบิลด์ สำหรับผู้ที่ใส่พจนานุกรม kuromoji ในแอป (Tauri/Electron, `public/dict/` แบบสแตติก) ค่าเริ่มต้น `japaneseDictPath` ของไลบรารีคือ CDN jsDelivr รายการนี้ทำให้ค่านั้นไม่จำเป็นต้องเป็นทางเลือกเดียว
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### อะแดปเตอร์เอนจิน

@@ -20,6 +20,8 @@ Extracted from [Spotify Karaoke](https://github.com/haroldalan/spotify-karaoke).
 - **Cantonese support** — Jyutping alongside default Mandarin Pinyin
 - **Lightweight detector subpath** — import only script detection (and external-script classification) without pulling in romanization engines
 - **Lazy engines** — every engine loads on first use; importing the main entry costs nothing until you romanize
+- **Warmup** — optionally preload a script's engine (and the Japanese dictionary) before the first line
+- **Kuromoji dict helper** — `lyric-romanizer/dict` locates the shipped dictionary so desktop apps can vendor it instead of hitting the default CDN
 - **Pluggable engines** — override any built-in engine, or plug your own adapter for externally-romanized scripts
 - **Observable fallbacks** — per-line flags tell you when an engine failed and a line was transliterated as a last resort
 - **Ukrainian-aware Cyrillic** — auto-detects Ukrainian-specific characters and applies the correct transliteration preset
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// Dict helper — Node / build-time only. Locates the kuromoji dictionary
+// so a bundler plugin can copy it into the app instead of fetching the CDN.
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### Types
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect` is only honored for 'chinese'; every other script ignores it.
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// Preload an engine (and, for Japanese, parse the dictionary) at idle
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **Bundlers / Vite workers.** Lazy `import()` only stays lazy if the bundler can code-split. Vite's default `worker.format` is `'iife'`, which inlines every engine into the worker. Set `worker: { format: 'es' }` so a Chinese song does not parse the Japanese and Cantonese engines. Do not import `lyric-romanizer/dict` from a worker or browser bundle — it is Node-only.
+
+#### `romanizer.warmup(scripts?)`
+
+Loads the built-in engine for each script without romanizing a line. Omit `scripts` to preload every built-in local engine still installed on the instance. Overridden or injected engines are skipped. Latin and external scripts are no-ops. A failed load **rejects** — unlike `romanizeLines`, warmup does not fall back to universal transliteration.
+
+#### `lyric-romanizer/dict`
+
+Node / build-time helper for consumers that vendor the kuromoji dictionary (a Tauri/Electron app, a static `public/dict/` folder). The library's default `japaneseDictPath` is a jsDelivr CDN; this entry exists so that default never has to be the only option.
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### Engine adapters

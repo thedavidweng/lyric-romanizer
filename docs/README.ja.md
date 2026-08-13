@@ -20,6 +20,8 @@
 - **広東語サポート** — 普通話ピン音に加え、広東語粤拼（Jyutping）にも対応
 - **軽量検出サブパス** — ローマ字化エンジンを取り込まずに、スクリプト検出（および外部スクリプトの分類）のみをインポート可能
 - **遅延エンジン** — すべてのエンジンは初回使用時に読み込まれ、ローマ字化するまでメインエントリのインポートにコストはかかりません
+- **ウォームアップ** — 最初の行の前に、スクリプトのエンジン（および日本語辞書）を先読みできる
+- **Kuromoji 辞書ヘルパー** — `lyric-romanizer/dict` が出荷済み辞書を特定するので、デスクトップアプリはデフォルト CDN ではなくローカルにホストできる
 - **差し込み可能なエンジン** — 任意の組み込みエンジンを上書きするか、外部でローマ字化するスクリプト向けに独自のアダプターを差し込めます
 - **観測可能なフォールバック** — 行ごとのフラグにより、エンジンが失敗して行が最終手段として翻字されたタイミングがわかります
 - **ウクライナ語対応キリル文字** — ウクライナ固有文字を自動検出し、適切な翻字プリセットを適用
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// 辞書ヘルパー — Node / ビルド時専用。kuromoji 辞書を特定し、
+// バンドラプラグインが CDN ではなくアプリへコピーできるようにする。
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### 型定義
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect` は 'chinese' でのみ有効。他のすべてのスクリプトでは無視されます。
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// アイドル時にエンジンを先読み（日本語は辞書も解析する）
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **バンドラ / Vite worker。** 遅延 `import()` が遅延のままなのは、バンドラがコード分割できる場合だけです。Vite のデフォルト `worker.format` は `'iife'` で、すべてのエンジンを worker にインラインします。`worker: { format: 'es' }` を設定すると、中国語の曲で日本語・広東語エンジンを解析しなくなります。`lyric-romanizer/dict` を worker やブラウザバンドルから import しないでください。Node 専用です。
+
+#### `romanizer.warmup(scripts?)`
+
+各スクリプトの組み込みエンジンを、行をローマ字化せずに読み込みます。`scripts` を省略すると、このインスタンスに残っているすべての組み込みローカルエンジンを先読みします。上書きまたは注入されたエンジンはスキップされます。ラテン文字と外部スクリプトは no-op です。読み込み失敗は **reject** します。`romanizeLines` と違い、warmup は汎用翻字へフォールバックしません。
+
+#### `lyric-romanizer/dict`
+
+kuromoji 辞書をアプリに同梱する消費者向けの Node / ビルド時ヘルパー（Tauri/Electron、静的な `public/dict/`）。ライブラリのデフォルト `japaneseDictPath` は jsDelivr CDN です。このエントリがあることで、それが唯一の選択肢ではなくなります。
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### エンジンアダプター

@@ -20,6 +20,8 @@
 - **Поддержка кантонского** — ютпин (Jyutping) наряду с мандаринским пиньинем
 - **Лёгкий подпуть детектора** — импортируйте только определение скрипта (и классификацию внешних скриптов) без движков романизации
 - **Ленивые движки** — каждый движок загружается при первом использовании; импорт основной точки входа ничего не стоит, пока вы не запустите романизацию
+- **Прогрев** — можно заранее загрузить движок скрипта (и японский словарь) до первой строки
+- **Помощник словаря Kuromoji** — `lyric-romanizer/dict` находит поставляемый словарь, чтобы десктопное приложение хостило его локально, а не с CDN по умолчанию
 - **Подключаемые движки** — переопределите любой встроенный движок или подключите собственный адаптер для скриптов с внешней романизацией
 - **Наблюдаемые откаты** — флаги для каждой строки сообщают, когда движок дал сбой и строка была транслитерирована в качестве крайней меры
 - **Украиноориентированная кириллица** — автоопределение украинских символов и применение правильного пресета транслитерации
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// Помощник словаря — только Node / время сборки. Находит словарь kuromoji,
+// чтобы плагин сборщика скопировал его в приложение вместо CDN.
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### Типы
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect` учитывается только для 'chinese'; все остальные скрипты его игнорируют.
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// Предзагрузка движка на простое (для японского также разбирается словарь)
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **Сборщики / Vite worker.** Ленивый `import()` остаётся ленивым, только если сборщик умеет code-split. У Vite по умолчанию `worker.format` равен `'iife'`, и все движки встраиваются в worker. Задайте `worker: { format: 'es' }`, чтобы китайская песня не разбирала японский и кантонский движки. Не импортируйте `lyric-romanizer/dict` из worker или браузерного бандла — это только для Node.
+
+#### `romanizer.warmup(scripts?)`
+
+Загружает встроенный движок каждого скрипта, не романизируя строку. Без `scripts` предзагружаются все оставшиеся встроенные локальные движки экземпляра. Переопределённые или внедрённые движки пропускаются. Латиница и внешние скрипты — no-op. Неудачная загрузка **отклоняет промис**. В отличие от `romanizeLines`, warmup не откатывается к универсальной транслитерации.
+
+#### `lyric-romanizer/dict`
+
+Помощник Node / времени сборки для тех, кто кладёт словарь kuromoji в приложение (Tauri/Electron, статический `public/dict/`). По умолчанию `japaneseDictPath` указывает на CDN jsDelivr; этот вход делает так, чтобы это не было единственным вариантом.
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### Адаптеры движков

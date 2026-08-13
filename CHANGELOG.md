@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1 — 2026-08-13
+
+Additive integration hooks for desktop consumers (OpenKara). No romanized-output changes.
+
+### Added
+
+- **`romanizer.warmup(scripts?)`** — eagerly load a built-in engine (and initialize the Japanese dictionary) without romanizing a line. Omit `scripts` to preload every remaining built-in local engine. Overridden / injected engines are skipped. A failed load rejects; this is not the universal-fallback path. Additive on the built-in class; anyone *implementing* `Romanizer` (test fakes) must add the method.
+- **`lyric-romanizer/dict`** — Node / build-time subpath: `KUROMOJI_DICT_FILES`, `KUROMOJI_PACKAGE`, and `resolveKuromojiDictDir()`. Locates the kuromoji dictionary shipped with `@sglkc/kuromoji` so a bundler plugin can vendor it instead of hard-coding the package layout or fetching the default jsDelivr CDN. Not re-exported from the main entry (it imports `node:module`).
+- README documents the Vite worker caveat: default `worker.format: 'iife'` inlines every lazy engine; `worker: { format: 'es' }` is required for on-demand loading inside a worker.
+
+### Changed
+
+- The published npm package no longer includes `docs/` (localized READMEs and ADRs remain on GitHub). `src` is still shipped so published source maps resolve.
+
 ## 0.3.0 — 2026-07-25
 
 Architecture pass: every piece of per-script knowledge now lives in one table per side of the light/heavy packaging seam, engines are lazy and injectable, and the universal fallback is observable. Public interface changes are **additive**; the two deliberate output-behavior changes are listed below with their rationale.

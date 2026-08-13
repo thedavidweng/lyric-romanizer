@@ -20,7 +20,11 @@ An adapter that romanizes one line of one script: `(line, context) => string | P
 
 ## Light/heavy packaging seam
 
-The package's two entries: `.` (the romanizer; engine bindings, all lazy) and `./detector` (detection + classification; zero engine dependencies, ships nothing but pure data and logic). Knowledge is placed by what it needs: classification is light, engine invocation is heavy. Nothing on the light side may import an engine.
+The package's three entries: `.` (the romanizer; engine bindings, all lazy), `./detector` (detection + classification; zero engine dependencies, ships nothing but pure data and logic), and `./dict` (Node / build-time only; locates the kuromoji dictionary so a consumer can vendor it). Knowledge is placed by what it needs: classification is light, engine invocation is heavy, dictionary resolution is Node-only. Nothing on the light side may import an engine. The dict entry must not be imported from the main entry or a browser/worker bundle.
+
+## Warmup
+
+`Romanizer.warmup` eagerly loads a built-in engine (and, for Japanese, initializes the kuromoji dictionary) without romanizing a line. It is the idle-time counterpart of lazy loading: first-use cost moves to a moment the caller chooses. Overridden engines are skipped. Failed loads reject — warmup is not the universal-fallback path.
 
 ## Detection
 

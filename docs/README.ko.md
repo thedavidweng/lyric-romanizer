@@ -20,6 +20,8 @@
 - **광동어 지원** — 기본 보통화 병음 외에 광동어 윈핑(Jyutping) 지원
 - **경량 감지 서브패스** — 로마자 변환 엔진을 가져오지 않고 스크립트 감지(및 외부 스크립트 분류)만 임포트 가능
 - **지연 로딩 엔진** — 모든 엔진이 최초 사용 시 로드되며, 로마자 변환 전까지 메인 엔트리 임포트 비용 없음
+- **워밍업** — 첫 줄 전에 해당 스크립트 엔진(및 일본어 사전)을 미리 로드할 수 있음
+- **Kuromoji 사전 헬퍼** — `lyric-romanizer/dict`가 포함된 사전을 찾으므로 데스크톱 앱이 기본 CDN 대신 로컬로 호스팅할 수 있음
 - **플러그 가능한 엔진** — 기본 제공 엔진을 재정의하거나 외부에서 로마자 변환되는 스크립트용 어댑터를 직접 연결
 - **관찰 가능한 폴백** — 엔진 실패로 한 줄이 최후의 수단으로 전사된 경우를 줄별 플래그로 표시
 - **우크라이나어 인식 키릴 문자** — 우크라이나어 고유 문자를 자동 감지하여 올바른 전사 프리셋 적용
@@ -78,6 +80,14 @@ import {
   requiresExternalRomanization,
   NON_LATIN_SCRIPT_RE,
 } from 'lyric-romanizer/detector';
+
+// 사전 헬퍼 — Node / 빌드 타임 전용. kuromoji 사전을 찾아
+// 번들러 플러그인이 CDN 대신 앱으로 복사할 수 있게 합니다.
+import {
+  KUROMOJI_DICT_FILES,
+  KUROMOJI_PACKAGE,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
 ```
 
 ### 타입
@@ -93,6 +103,7 @@ type ScriptType =
 interface Romanizer {
   romanizeLine(line: string, options?: RomanizeOptions): Promise<string>;
   romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult>;
+  warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void>;
 }
 
 // `dialect`는 'chinese'에서만 적용되며, 그 외 모든 스크립트는 무시합니다.
@@ -123,6 +134,38 @@ const romanizer = createRomanizer();
 const romanizer = createRomanizer({
   japaneseDictPath: 'https://my-cdn.com/kuromoji/dict',
 });
+
+// 유휴 시간에 엔진 미리 로드 (일본어는 사전도 파싱)
+await romanizer.warmup('japanese');
+await romanizer.warmup(['chinese', 'korean']);
+```
+
+> **번들러 / Vite worker.** 지연 `import()`는 번들러가 코드 분할을 할 수 있을 때만 지연입니다. Vite 기본 `worker.format`은 `'iife'`이며, 모든 엔진을 worker에 인라인합니다. `worker: { format: 'es' }`로 설정해야 중국어 곡이 일본어·광동어 엔진을 파싱하지 않습니다. worker나 브라우저 번들에서 `lyric-romanizer/dict`를 import하지 마세요. Node 전용입니다.
+
+#### `romanizer.warmup(scripts?)`
+
+각 스크립트의 기본 제공 엔진을 한 줄도 로마자 변환하지 않고 로드합니다. `scripts`를 생략하면 이 인스턴스에 남아 있는 모든 기본 제공 로컬 엔진을 미리 로드합니다. 재정의되거나 주입된 엔진은 건너뜁니다. 라틴 문자와 외부 스크립트는 no-op입니다. 로드 실패는 **reject**합니다. `romanizeLines`와 달리 warmup은 범용 전사로 폴백하지 않습니다.
+
+#### `lyric-romanizer/dict`
+
+kuromoji 사전을 앱에 넣는 소비자를 위한 Node / 빌드 타임 헬퍼(Tauri/Electron, 정적 `public/dict/`). 라이브러리의 기본 `japaneseDictPath`는 jsDelivr CDN입니다. 이 엔트리가 있으면 그것이 유일한 선택일 필요가 없습니다.
+
+```ts
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  KUROMOJI_DICT_FILES,
+  resolveKuromojiDictDir,
+} from 'lyric-romanizer/dict';
+
+const src = resolveKuromojiDictDir();
+const dest = 'public/dict';
+mkdirSync(dest, { recursive: true });
+for (const file of KUROMOJI_DICT_FILES) {
+  copyFileSync(join(src, file), join(dest, file));
+}
+
+const romanizer = createRomanizer({ japaneseDictPath: '/dict/' });
 ```
 
 #### 엔진 어댑터
