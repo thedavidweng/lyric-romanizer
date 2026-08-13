@@ -2,31 +2,64 @@ name: Mirror to Codeberg
 
 on:
   push:
-    branches:
-      - "**"
-      - "!dependabot/**"
-    tags: ["**"]
+    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# One push at a time. Concurrent mirrors race on Codeberg refs
+# (`cannot lock ref ... is at X but expected Y`) and the old
+# cssnr action silently ignored `force_push`.
+concurrency:
+  group: mirror-to-codeberg
+  cancel-in-progress: false
+
 jobs:
   mirror:
     name: Mirror
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-
+    timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Mirror to Codeberg
-        uses: cssnr/mirror-repository-action@2af5bf347684245f52b5f56502956a57f9b8813e # v1
-        with:
-          host: https://codeberg.org
-          username: thedavidweng
-          password: ${{ secrets.CODEBERG_TOKEN }}
-          force_push: true
+      - name: Push main and tags to Codeberg
+        env:
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CODEBERG_TOKEN:-}" ]; then
+            echo "CODEBERG_TOKEN is not available in this context; skipping."
+            exit 0
+          fi
+
+          repo="${GITHUB_REPOSITORY#*/}"
+          git remote add codeberg "https://thedavidweng:${CODEBERG_TOKEN}@codeberg.org/thedavidweng/${repo}.git"
+
+          push_with_retry() {
+            local attempt=1
+            while [ "$attempt" -le 4 ]; do
+              if git push --force "$@"; then
+                return 0
+              fi
+              echo "push failed (attempt ${attempt}); retrying in $((attempt * 15))s"
+              sleep $((attempt * 15))
+              attempt=$((attempt + 1))
+            done
+            return 1
+          }
+
+          # Push only the default branch + tags. Codeberg does not sell
+          # extra git quota; they ask public projects not to waste
+          # disk/traffic on unused remotes (see docs FAQ).
+          if git show-ref --verify --quiet refs/remotes/origin/main; then
+            push_with_retry codeberg refs/remotes/origin/main:refs/heads/main
+          else
+            push_with_retry codeberg HEAD:refs/heads/main
+          fi
+          push_with_retry codeberg --tags
