@@ -1,35 +1,19 @@
 version: 2
 updates:
-  # Keep every composed romanization engine (and dev tooling) on its latest
-  # release. Minor and patch updates arrive grouped; majors arrive as
-  # individual PRs so behavior changes are reviewed against CI's output tests.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "daily"
+    open-pull-requests-limit: 10
     groups:
       minor-and-patch:
         update-types:
           - "minor"
           - "patch"
-    open-pull-requests-limit: 10
     cooldown:
       default-days: 7
       semver-major-days: 10
       semver-minor-days: 7
-      semver-patch-days: 3
-  - package-ecosystem: "github-actions"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 5
-      semver-major-days: 7
-      semver-minor-days: 3
       semver-patch-days: 3
   - package-ecosystem: "github-actions"
     directory: "/"
