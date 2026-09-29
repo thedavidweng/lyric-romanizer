@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import { KUROMOJI_DICT_FILES, KUROMOJI_PACKAGE, resolveKuromojiDictDir } from '../src/dict.js';
 
 describe('kuromoji dict packaging contract', () => {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const hoisted = vi.hoisted(() => {
   const analyzerCtor = vi.fn(function MockKuromojiAnalyzer(this: { opts: unknown }, opts: unknown) {
@@ -69,14 +69,17 @@ describe('romanizer', () => {
     expect(output).toBe('jp:ありがとう');
     expect(hoisted.analyzerCtor).toHaveBeenCalledWith({ dictPath: 'mock://dict' });
     expect(hoisted.mockInit).toHaveBeenCalledTimes(1);
-    expect(hoisted.mockConvert).toHaveBeenCalledWith('ありがとう', { to: 'romaji', mode: 'spaced' });
+    expect(hoisted.mockConvert).toHaveBeenCalledWith('ありがとう', {
+      to: 'romaji',
+      mode: 'spaced',
+    });
   });
 
   it('throws explicit error for external scripts', async () => {
     const romanizer = createRomanizer();
-    await expect(romanizer.romanizeLines(['مرحبا'], { script: 'arabic' }))
-      .rejects
-      .toBeInstanceOf(UnsupportedRomanizationError);
+    await expect(romanizer.romanizeLines(['مرحبا'], { script: 'arabic' })).rejects.toBeInstanceOf(
+      UnsupportedRomanizationError,
+    );
   });
 });
 
@@ -95,7 +98,10 @@ describe('cantonese romanization', () => {
 
   it('uses Jyutping when dialect is cantonese', async () => {
     const romanizer = createRomanizer();
-    const result = await romanizer.romanizeLine('你好', { script: 'chinese', dialect: 'cantonese' });
+    const result = await romanizer.romanizeLine('你好', {
+      script: 'chinese',
+      dialect: 'cantonese',
+    });
     expect(result).toBe('jyutping:你好');
     expect(hoisted.mockGetJyutpingText).toHaveBeenCalledWith('你好');
   });
@@ -109,7 +115,10 @@ describe('cantonese romanization', () => {
 
   it('forwards dialect option through romanizeLines', async () => {
     const romanizer = createRomanizer();
-    const result = await romanizer.romanizeLines(['你好', '世界'], { script: 'chinese', dialect: 'cantonese' });
+    const result = await romanizer.romanizeLines(['你好', '世界'], {
+      script: 'chinese',
+      dialect: 'cantonese',
+    });
     expect(result.lines[0]).toBe('jyutping:你好');
     expect(result.lines[1]).toBe('jyutping:世界');
   });
@@ -117,15 +126,23 @@ describe('cantonese romanization', () => {
   it('falls back to Pinyin when getJyutpingText returns empty', async () => {
     hoisted.mockGetJyutpingText.mockReturnValueOnce('');
     const romanizer = createRomanizer();
-    const result = await romanizer.romanizeLine('你好', { script: 'chinese', dialect: 'cantonese' });
+    const result = await romanizer.romanizeLine('你好', {
+      script: 'chinese',
+      dialect: 'cantonese',
+    });
     expect(result).not.toMatch(/^jyutping:/);
     expect(result).not.toMatch(/[\u4E00-\u9FFF]/);
   });
 
   it('falls back to Pinyin when getJyutpingText throws', async () => {
-    hoisted.mockGetJyutpingText.mockImplementationOnce(() => { throw new Error('fail'); });
+    hoisted.mockGetJyutpingText.mockImplementationOnce(() => {
+      throw new Error('fail');
+    });
     const romanizer = createRomanizer();
-    const result = await romanizer.romanizeLine('你好', { script: 'chinese', dialect: 'cantonese' });
+    const result = await romanizer.romanizeLine('你好', {
+      script: 'chinese',
+      dialect: 'cantonese',
+    });
     expect(result).not.toMatch(/^jyutping:/);
     expect(result).not.toMatch(/[\u4E00-\u9FFF]/);
   });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vite-plus/test';
 import {
   NON_LATIN_SCRIPT_RE,
   detectScript,
@@ -61,7 +61,7 @@ describe('NON_LATIN_SCRIPT_RE derivation', () => {
   // contract (the extension content script's latin fast path), so assert
   // byte-for-byte behavioral identity with the legacy literal across the BMP.
   const LEGACY_RE = new RegExp(
-    '[\\u3040-\\u30FF\\u4E00-\\u9FFF\\uAC00-\\uD7AF\\u0400-\\u04FF\\u0900-\\u0D7F\\u0600-\\u06FF\\u0590-\\u05FF\\u0E00-\\u0E7F]'
+    '[\\u3040-\\u30FF\\u4E00-\\u9FFF\\uAC00-\\uD7AF\\u0400-\\u04FF\\u0900-\\u0D7F\\u0600-\\u06FF\\u0590-\\u05FF\\u0E00-\\u0E7F]',
   );
 
   it('is behaviorally identical to the legacy hand-written regex', () => {
@@ -69,7 +69,7 @@ describe('NON_LATIN_SCRIPT_RE derivation', () => {
       const ch = String.fromCharCode(cp);
       if (LEGACY_RE.test(ch) !== NON_LATIN_SCRIPT_RE.test(ch)) {
         throw new Error(
-          `Derived NON_LATIN_SCRIPT_RE diverges from legacy at U+${cp.toString(16).toUpperCase().padStart(4, '0')}`
+          `Derived NON_LATIN_SCRIPT_RE diverges from legacy at U+${cp.toString(16).toUpperCase().padStart(4, '0')}`,
         );
       }
     }
@@ -100,8 +100,19 @@ describe('requiresExternalRomanization (light entry)', () => {
 
   it('classifies local scripts', () => {
     for (const script of [
-      'japanese', 'chinese', 'korean', 'cyrillic', 'devanagari', 'gujarati',
-      'gurmukhi', 'telugu', 'kannada', 'odia', 'tamil', 'thai', 'latin',
+      'japanese',
+      'chinese',
+      'korean',
+      'cyrillic',
+      'devanagari',
+      'gujarati',
+      'gurmukhi',
+      'telugu',
+      'kannada',
+      'odia',
+      'tamil',
+      'thai',
+      'latin',
     ] as const) {
       expect(requiresExternalRomanization(script)).toBe(false);
     }
