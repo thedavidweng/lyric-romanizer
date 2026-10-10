@@ -82,5 +82,5 @@
     "url": "https://github.com/thedavidweng/lyric-romanizer/issues"
   },
   "homepage": "https://github.com/thedavidweng/lyric-romanizer#readme",
-  "packageManager": "pnpm@12"
+  "packageManager": "pnpm@12.10.1"
 }
