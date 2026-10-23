@@ -195,7 +195,7 @@ importers:
         version: 3.1.1
       transliteration:
         specifier: ^2.6.1
-        version: 2.6.1
+        version: 2.6.2
     devDependencies:
       '@types/node':
         specifier: ^26.4.1
@@ -680,8 +680,8 @@ packages:
   toml@2.3.6:
     resolution: {integrity: sha512-gVweAectJU3ebq//Ferr2JUY4WKSDe5N+z0FvjDncLGyHmIDoxgY/2Ie4qfEIDm4IS7OA6Rmdm7pdEEdMcV/xQ==}
 
-  transliteration@2.6.1:
-    resolution: {integrity: sha512-hJ9BhrQAOnNTbpOr1MxsNjZISkn7ppvF5TKUeFmTE1mG4ZPD/XVxF0L0LUoIUCWmQyxH0gJpVtfYLAWf298U9w==}
+  transliteration@2.6.2:
+    resolution: {integrity: sha512-nS94BsBPRF1AwZG9ZfY7zl1mu9S3Opj8NqfM251J3pz4IdeAtIz4J1gZNhP5IpXAew7qevNlGvdQ4X1BZLDykw==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -1099,7 +1099,7 @@ snapshots:
 
   toml@2.3.6: {}
 
-  transliteration@2.6.1: {}
+  transliteration@2.6.2: {}
 
   typescript@7.0.2:
     optionalDependencies:
