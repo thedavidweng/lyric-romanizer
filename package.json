@@ -50,15 +50,15 @@
     "@sglkc/kuroshiro": "^1.0.1",
     "@sglkc/kuroshiro-analyzer-kuromoji": "^1.0.1",
     "cyrillic-to-translit-js": "^3.2.1",
-    "pinyin-pro": "^3.29.3",
+    "pinyin-pro": "^3.29.5",
     "tamil-romanizer": "^1.0.2",
     "to-jyutping": "^3.1.1",
-    "transliteration": "^2.6.1"
+    "transliteration": "^2.7.0"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   },
   "keywords": [
     "romanization",
