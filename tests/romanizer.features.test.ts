@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 
 const hoisted = vi.hoisted(() => {
   const analyzerCtor = vi.fn(function MockKuromojiAnalyzer(this: { opts: unknown }, opts: unknown) {
@@ -41,9 +41,11 @@ describe('engine injection seam', () => {
     const romanizer = createRomanizer({
       engines: { chinese: (line, context) => `${context.dialect}:${line}` },
     });
-    await expect(romanizer.romanizeLine('你好', { script: 'chinese' })).resolves.toBe('mandarin:你好');
+    await expect(romanizer.romanizeLine('你好', { script: 'chinese' })).resolves.toBe(
+      'mandarin:你好',
+    );
     await expect(
-      romanizer.romanizeLine('你好', { script: 'chinese', dialect: 'cantonese' })
+      romanizer.romanizeLine('你好', { script: 'chinese', dialect: 'cantonese' }),
     ).resolves.toBe('cantonese:你好');
   });
 
@@ -57,8 +59,12 @@ describe('engine injection seam', () => {
 
   it('still throws for external scripts without an adapter', async () => {
     const romanizer = createRomanizer();
-    await expect(romanizer.romanizeLines(['مرحبا'])).rejects.toBeInstanceOf(UnsupportedRomanizationError);
-    await expect(romanizer.romanizeLine('مرحبا')).rejects.toBeInstanceOf(UnsupportedRomanizationError);
+    await expect(romanizer.romanizeLines(['مرحبا'])).rejects.toBeInstanceOf(
+      UnsupportedRomanizationError,
+    );
+    await expect(romanizer.romanizeLine('مرحبا')).rejects.toBeInstanceOf(
+      UnsupportedRomanizationError,
+    );
   });
 
   it('throws for an engineless pinned script even when the line is pure latin', async () => {
@@ -66,10 +72,10 @@ describe('engine injection seam', () => {
     // at any line, so romanizeLine must not silently no-op via the latin guard.
     const romanizer = createRomanizer();
     await expect(
-      romanizer.romanizeLine('Hello world', { script: 'arabic' })
+      romanizer.romanizeLine('Hello world', { script: 'arabic' }),
     ).rejects.toBeInstanceOf(UnsupportedRomanizationError);
     await expect(
-      romanizer.romanizeLines(['Hello world'], { script: 'arabic' })
+      romanizer.romanizeLines(['Hello world'], { script: 'arabic' }),
     ).rejects.toBeInstanceOf(UnsupportedRomanizationError);
   });
 
@@ -85,7 +91,7 @@ describe('engine injection seam', () => {
   it('throws for out-of-contract script strings instead of silently transliterating', async () => {
     const romanizer = createRomanizer();
     await expect(
-      romanizer.romanizeLine('αβγ', { script: 'greek' as never })
+      romanizer.romanizeLine('αβγ', { script: 'greek' as never }),
     ).rejects.toBeInstanceOf(UnsupportedRomanizationError);
   });
 
@@ -95,10 +101,10 @@ describe('engine injection seam', () => {
     const romanizer = createRomanizer();
     for (const script of ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__']) {
       await expect(
-        romanizer.romanizeLine('你好', { script: script as never })
+        romanizer.romanizeLine('你好', { script: script as never }),
       ).rejects.toBeInstanceOf(UnsupportedRomanizationError);
       await expect(
-        romanizer.romanizeLines(['你好'], { script: script as never })
+        romanizer.romanizeLines(['你好'], { script: script as never }),
       ).rejects.toBeInstanceOf(UnsupportedRomanizationError);
     }
   });
@@ -246,7 +252,9 @@ describe('latin guard under a pinned script', () => {
 
   it('applies to explicitly pinned single lines', async () => {
     const romanizer = createRomanizer();
-    await expect(romanizer.romanizeLine('Hello world', { script: 'chinese' })).resolves.toBe('Hello world');
+    await expect(romanizer.romanizeLine('Hello world', { script: 'chinese' })).resolves.toBe(
+      'Hello world',
+    );
   });
 
   it('keeps letterless input as a no-op', async () => {

@@ -14,6 +14,7 @@ const check = (name, condition, detail) => {
 
 // Every engine, exercised through the public interface. Japanese is excluded:
 // its engine fetches a dictionary from a CDN, so it cannot run offline.
+/** @type {Array<[string, string[], string | undefined, string[]]>} */
 const EXPECTED = [
   ['chinese', ['你好'], undefined, ['nǐ hǎo']],
   ['chinese', ['佢冇'], 'cantonese', ['keoi5 mou5']],
@@ -31,9 +32,8 @@ const EXPECTED = [
   ['latin', ['Hello world'], undefined, ['Hello world']],
 ];
 
-const { createRomanizer, detectScript, isLatinScript, requiresExternalRomanization } = await import(
-  '../dist/index.js'
-);
+const { createRomanizer, detectScript, isLatinScript, requiresExternalRomanization } =
+  await import('../dist/index.js');
 
 // warmup is on the instance; a no-op script must not throw, and a real
 // local engine must be loadable through it before romanizeLines runs.
@@ -41,7 +41,11 @@ const warmed = createRomanizer();
 await warmed.warmup('latin');
 await warmed.warmup(['korean']);
 const warmedKorean = await warmed.romanizeLines(['안녕'], { script: 'korean' });
-check('warmup:korean', warmedKorean.lines[0] === 'annyeong', `got ${JSON.stringify(warmedKorean.lines)}`);
+check(
+  'warmup:korean',
+  warmedKorean.lines[0] === 'annyeong',
+  `got ${JSON.stringify(warmedKorean.lines)}`,
+);
 
 const romanizer = createRomanizer();
 
@@ -50,12 +54,12 @@ for (const [script, lines, dialect, expected] of EXPECTED) {
   check(
     `engine:${script}${dialect ? `/${dialect}` : ''}`,
     JSON.stringify(result.lines) === JSON.stringify(expected),
-    `expected ${JSON.stringify(expected)}, got ${JSON.stringify(result.lines)}`
+    `expected ${JSON.stringify(expected)}, got ${JSON.stringify(result.lines)}`,
   );
   check(
     `fallbacks:${script}`,
     result.fallbacks?.every((f) => f === false) === true,
-    `engine degraded to the universal fallback: ${JSON.stringify(result.fallbacks)}`
+    `engine degraded to the universal fallback: ${JSON.stringify(result.fallbacks)}`,
   );
 }
 
@@ -68,11 +72,15 @@ const fallbackRomanizer = createRomanizer({
   },
 });
 const degraded = await fallbackRomanizer.romanizeLines(['สวัสดี'], { script: 'thai' });
-check('fallback:reported', degraded.fallbacks?.[0] === true, `fallbacks: ${JSON.stringify(degraded.fallbacks)}`);
+check(
+  'fallback:reported',
+  degraded.fallbacks?.[0] === true,
+  `fallbacks: ${JSON.stringify(degraded.fallbacks)}`,
+);
 check(
   'fallback:transliterated',
   !/[฀-๿]/.test(degraded.lines[0]) && degraded.lines[0].length > 0,
-  `got ${JSON.stringify(degraded.lines)}`
+  `got ${JSON.stringify(degraded.lines)}`,
 );
 
 // Main-entry re-exports must work at value level, not just as types.
@@ -97,7 +105,11 @@ check('external:adapter', adapted.lines[0] === 'api:مرحبا', `got ${JSON.str
 // The ./detector subpath must load standalone and stay engine-free.
 const detector = await import('../dist/detector.js');
 check('detector:detectScript', detector.detectScript(['สวัสดี']) === 'thai', 'thai detection failed');
-check('detector:classification', detector.requiresExternalRomanization('arabic') === true, 'expected true');
+check(
+  'detector:classification',
+  detector.requiresExternalRomanization('arabic') === true,
+  'expected true',
+);
 check('detector:regex', detector.NON_LATIN_SCRIPT_RE.test('สวัสดี') === true, 'expected true');
 
 const detectorSource = readFileSync(new URL('../dist/detector.js', import.meta.url), 'utf8');
@@ -105,7 +117,7 @@ const detectorImports = detectorSource.match(/^\s*import[\s({]|[^.\w]import\s*\(
 check(
   'detector:engine-free',
   detectorImports.length === 0,
-  `dist/detector.js must import nothing (found ${detectorImports.length}: ${detectorImports.join(', ')})`
+  `dist/detector.js must import nothing (found ${detectorImports.length}: ${detectorImports.join(', ')})`,
 );
 
 // The ./dict subpath is Node/build-time only: it locates kuromoji's dictionary
@@ -114,18 +126,26 @@ const dict = await import('../dist/dict.js');
 check(
   'dict:package',
   dict.KUROMOJI_PACKAGE === '@sglkc/kuromoji',
-  `got ${JSON.stringify(dict.KUROMOJI_PACKAGE)}`
+  `got ${JSON.stringify(dict.KUROMOJI_PACKAGE)}`,
 );
-check('dict:files', Array.isArray(dict.KUROMOJI_DICT_FILES) && dict.KUROMOJI_DICT_FILES.includes('base.dat.gz'), 'missing base.dat.gz');
+check(
+  'dict:files',
+  Array.isArray(dict.KUROMOJI_DICT_FILES) && dict.KUROMOJI_DICT_FILES.includes('base.dat.gz'),
+  'missing base.dat.gz',
+);
 const dictDir = dict.resolveKuromojiDictDir();
-check('dict:resolves', typeof dictDir === 'string' && dictDir.includes('kuromoji'), `got ${JSON.stringify(dictDir)}`);
+check(
+  'dict:resolves',
+  typeof dictDir === 'string' && dictDir.includes('kuromoji'),
+  `got ${JSON.stringify(dictDir)}`,
+);
 
 const dictSource = readFileSync(new URL('../dist/dict.js', import.meta.url), 'utf8');
 const dictFrom = [...dictSource.matchAll(/from ['"]([^'"]+)['"]/g)].map((match) => match[1]);
 check(
   'dict:node-only',
   dictFrom.length > 0 && dictFrom.every((specifier) => specifier.startsWith('node:')),
-  `dist/dict.js may only import node: built-ins (found ${dictFrom.join(', ') || 'none'})`
+  `dist/dict.js may only import node: built-ins (found ${dictFrom.join(', ') || 'none'})`,
 );
 
 if (failures.length > 0) {

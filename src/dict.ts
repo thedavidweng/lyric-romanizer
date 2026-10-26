@@ -45,7 +45,7 @@ export function resolveKuromojiDictDir(): string {
   } catch (error) {
     throw new Error(
       `Failed to resolve @sglkc/kuroshiro-analyzer-kuromoji while locating the kuromoji dictionary.`,
-      { cause: error }
+      { cause: error },
     );
   }
 
@@ -54,9 +54,12 @@ export function resolveKuromojiDictDir(): string {
   try {
     kuromojiEntry = fromAnalyzer.resolve(KUROMOJI_PACKAGE);
   } catch (error) {
-    throw new Error(`Failed to resolve ${KUROMOJI_PACKAGE} while locating the kuromoji dictionary.`, {
-      cause: error,
-    });
+    throw new Error(
+      `Failed to resolve ${KUROMOJI_PACKAGE} while locating the kuromoji dictionary.`,
+      {
+        cause: error,
+      },
+    );
   }
 
   // Package main is `src/kuromoji.js`; the gzip dictionary lives at `dict/`
@@ -64,9 +67,7 @@ export function resolveKuromojiDictDir(): string {
   const dictDir = resolve(dirname(kuromojiEntry), '..', 'dict');
   const missing = KUROMOJI_DICT_FILES.filter((file) => !existsSync(join(dictDir, file)));
   if (missing.length > 0) {
-    throw new Error(
-      `Kuromoji dictionary at ${dictDir} is missing: ${missing.join(', ')}.`
-    );
+    throw new Error(`Kuromoji dictionary at ${dictDir} is missing: ${missing.join(', ')}.`);
   }
   return dictDir;
 }

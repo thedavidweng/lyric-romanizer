@@ -60,7 +60,9 @@ function escapeCodePoint(codePoint: number): string {
 
 function characterClass(ranges: readonly CodeRange[]): string {
   return ranges
-    .map(([start, end]) => (start === end ? escapeCodePoint(start) : `${escapeCodePoint(start)}-${escapeCodePoint(end)}`))
+    .map(([start, end]) =>
+      start === end ? escapeCodePoint(start) : `${escapeCodePoint(start)}-${escapeCodePoint(end)}`,
+    )
     .join('');
 }
 
@@ -81,11 +83,11 @@ function mergeRanges(ranges: readonly CodeRange[]): CodeRange[] {
 const METADATA_ENTRIES = Object.entries(SCRIPT_METADATA) as Array<[ScriptType, ScriptMeta]>;
 
 const DEFINITIVE_SCRIPTS: Array<readonly [ScriptType, RegExp]> = METADATA_ENTRIES.filter(
-  ([, meta]) => meta.definitive
+  ([, meta]) => meta.definitive,
 ).map(([script, meta]) => [script, new RegExp(`[${characterClass(meta.ranges)}]`)] as const);
 
 const SCRIPT_SCORES: Array<readonly [ScriptType, RegExp]> = METADATA_ENTRIES.filter(
-  ([, meta]) => meta.ranges.length > 0 && !meta.definitive
+  ([, meta]) => meta.ranges.length > 0 && !meta.definitive,
 ).map(([script, meta]) => [script, new RegExp(`[${characterClass(meta.ranges)}]`, 'g')] as const);
 
 // Derived union of every detectable range. Also consumed by the extension
@@ -93,7 +95,7 @@ const SCRIPT_SCORES: Array<readonly [ScriptType, RegExp]> = METADATA_ENTRIES.fil
 // SCRIPT_METADATA keeps it aligned with detection structurally instead of by
 // comment.
 export const NON_LATIN_SCRIPT_RE = new RegExp(
-  `[${characterClass(mergeRanges(METADATA_ENTRIES.flatMap(([, meta]) => meta.ranges)))}]`
+  `[${characterClass(mergeRanges(METADATA_ENTRIES.flatMap(([, meta]) => meta.ranges)))}]`,
 );
 
 export function isLatinScript(lines: readonly string[]): boolean {

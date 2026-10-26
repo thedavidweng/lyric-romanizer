@@ -61,7 +61,10 @@ const loadKorean = lazy(async () => {
 
 const loadThai = lazy(async () => {
   const mod = await import('@dehoist/romanize-thai');
-  return resolved(mod.default ?? (mod as { romanize?: typeof mod.default }).romanize, 'thai romanize');
+  return resolved(
+    mod.default ?? (mod as { romanize?: typeof mod.default }).romanize,
+    'thai romanize',
+  );
 });
 
 const loadTamil = lazy(async () => {
@@ -71,7 +74,10 @@ const loadTamil = lazy(async () => {
 
 const loadSanscript = lazy(async () => {
   const mod = await import('@indic-transliteration/sanscript');
-  return resolved(mod.default ?? (mod as { Sanscript?: typeof mod.default }).Sanscript, 'Sanscript');
+  return resolved(
+    mod.default ?? (mod as { Sanscript?: typeof mod.default }).Sanscript,
+    'Sanscript',
+  );
 });
 
 const loadTransliterate = lazy(async () => {
@@ -81,7 +87,10 @@ const loadTransliterate = lazy(async () => {
 
 const loadCyrillicTranslit = lazy(async () => {
   const mod = await import('cyrillic-to-translit-js');
-  const factory = resolved(mod.default ?? (mod as unknown as typeof mod.default), 'CyrillicToTranslit');
+  const factory = resolved(
+    mod.default ?? (mod as unknown as typeof mod.default),
+    'CyrillicToTranslit',
+  );
   return { ru: factory({ preset: 'ru' }), uk: factory({ preset: 'uk' }) };
 });
 
@@ -104,8 +113,10 @@ class DefaultRomanizer implements Romanizer {
       import('@sglkc/kuroshiro'),
       import('@sglkc/kuroshiro-analyzer-kuromoji'),
     ]);
-    const KuroshiroCtor = kuroshiroModule.default ?? (kuroshiroModule as unknown as typeof kuroshiroModule.default);
-    const KuromojiAnalyzer = analyzerModule.default ?? (analyzerModule as unknown as typeof analyzerModule.default);
+    const KuroshiroCtor =
+      kuroshiroModule.default ?? (kuroshiroModule as unknown as typeof kuroshiroModule.default);
+    const KuromojiAnalyzer =
+      analyzerModule.default ?? (analyzerModule as unknown as typeof analyzerModule.default);
     const instance = new KuroshiroCtor();
     await instance.init(new KuromojiAnalyzer({ dictPath: this.japaneseDictPath }));
     return instance;
@@ -120,7 +131,7 @@ class DefaultRomanizer implements Romanizer {
     this.defaultEngines = this.buildDefaultEngines();
     const engines = Object.assign(
       Object.create(null) as Partial<Record<ScriptType, RomanizeEngine>>,
-      this.defaultEngines
+      this.defaultEngines,
     );
     for (const [script, engine] of Object.entries(options?.engines ?? {})) {
       if (engine) engines[script as ScriptType] = engine;
@@ -129,7 +140,10 @@ class DefaultRomanizer implements Romanizer {
   }
 
   async warmup(scripts?: ScriptType | readonly ScriptType[]): Promise<void> {
-    const requested = scripts === undefined ? (Object.keys(this.defaultEngines) as EngineScript[]) : [scripts].flat();
+    const requested =
+      scripts === undefined
+        ? (Object.keys(this.defaultEngines) as EngineScript[])
+        : [scripts].flat();
     await Promise.all(requested.map((script) => this.preload(script)));
   }
 
@@ -138,7 +152,10 @@ class DefaultRomanizer implements Romanizer {
     return text;
   }
 
-  async romanizeLines(lines: readonly string[], options?: RomanizeOptions): Promise<RomanizeResult> {
+  async romanizeLines(
+    lines: readonly string[],
+    options?: RomanizeOptions,
+  ): Promise<RomanizeResult> {
     const script = options?.script ?? detectScript(lines);
     if (script !== 'latin' && !this.engines[script]) {
       throw new UnsupportedRomanizationError(script);
@@ -147,7 +164,9 @@ class DefaultRomanizer implements Romanizer {
       return { script, lines: [...lines], fallbacks: lines.map(() => false) };
     }
 
-    const resolved = await Promise.all(lines.map((line) => this.resolveLine(line, script, options)));
+    const resolved = await Promise.all(
+      lines.map((line) => this.resolveLine(line, script, options)),
+    );
     return {
       script,
       lines: resolved.map((r) => r.text),
@@ -196,7 +215,7 @@ class DefaultRomanizer implements Romanizer {
   private async resolveLine(
     line: string,
     script: ScriptType | undefined,
-    options: RomanizeOptions | undefined
+    options: RomanizeOptions | undefined,
   ): Promise<{ text: string; fallback: boolean }> {
     if (!line.trim() || !HAS_LETTER_RE.test(line)) return { text: line, fallback: false };
 
