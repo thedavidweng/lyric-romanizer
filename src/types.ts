@@ -28,7 +28,10 @@ export type RomanizeEngineContext = {
  * asynchronous. Throwing (or rejecting) triggers the universal transliteration
  * fallback, reported per line via `RomanizeResult.fallbacks`.
  */
-export type RomanizeEngine = (line: string, context: RomanizeEngineContext) => string | Promise<string>;
+export type RomanizeEngine = (
+  line: string,
+  context: RomanizeEngineContext,
+) => string | Promise<string>;
 
 export type RomanizerOptions = {
   japaneseDictPath?: string;
