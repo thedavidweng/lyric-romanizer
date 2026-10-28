@@ -3,7 +3,7 @@
 // CJS/ESM boundary) and packaging-seam violations that unit tests cannot see,
 // because tests import TypeScript source through vitest's resolver.
 //
-// Run after `pnpm run build`: node scripts/smoke.mjs
+// Run after `bun run build`: node scripts/smoke.mjs
 import { readFileSync } from 'node:fs';
 
 const failures = [];

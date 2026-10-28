@@ -11,14 +11,7 @@ export default defineConfig({
   },
   fmt: {
     singleQuote: true,
-    ignorePatterns: [
-      '**/*.md',
-      '**/*.yml',
-      '**/*.json',
-      'pnpm-lock.yaml',
-      'pnpm-workspace.yaml',
-      'dist',
-    ],
+    ignorePatterns: ['**/*.md', '**/*.yml', '**/*.json', 'bun.lock', 'dist'],
   },
   lint: {
     jsPlugins: [{ name: 'vite-plus', specifier: 'vite-plus/oxlint-plugin' }],
