@@ -36,12 +36,12 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist",
-    "prepack": "npm run build",
+    "prepack": "bun run build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vp test run",
     "test:watch": "vp test",
     "smoke": "node scripts/smoke.mjs",
-    "verify": "pnpm run typecheck && pnpm run build && pnpm test && pnpm run smoke"
+    "verify": "bun run typecheck && bun run build && bun run test && bun run smoke"
   },
   "dependencies": {
     "@dehoist/romanize-thai": "^1.0.0",
@@ -58,7 +58,7 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vite-plus": "catalog:"
+    "vite-plus": "1.4.0"
   },
   "keywords": [
     "romanization",
@@ -82,5 +82,8 @@
     "url": "https://github.com/thedavidweng/lyric-romanizer/issues"
   },
   "homepage": "https://github.com/thedavidweng/lyric-romanizer#readme",
-  "packageManager": "pnpm@12.15.0"
+  "overrides": {
+    "toml": "5.0.1",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+  }
 }
