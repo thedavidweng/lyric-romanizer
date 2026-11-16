@@ -84,6 +84,6 @@
   "homepage": "https://github.com/thedavidweng/lyric-romanizer#readme",
   "overrides": {
     "toml": "5.0.1",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.1"
   }
 }
